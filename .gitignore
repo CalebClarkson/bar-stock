@@ -1,0 +1,11 @@
+osb_config.json
+data/*
+!data/bottle-weights.json
+__pycache__/
+*.pyc
+localhost+1.pem
+localhost+1-key.pem
+.DS_Store
+.vercel
+.stress-sandbox/
+data/_stress-reports/

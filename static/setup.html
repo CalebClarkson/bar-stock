@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The Open Source Bar Program — Setup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/app.css" />
+</head>
+<body data-app="setup">
+  <div class="demo-ribbon">The Open Source Bar Program · Live demo — field-tested at Your Bar 1</div>
+  <div class="shell setup-shell">
+    <header class="header setup-header">
+      <div class="setup-eyebrow">First-Time Setup</div>
+      <div class="brand">The Open Source Bar Program</div>
+      <div class="subbrand">Inventory setup · Caterpillar walkthrough</div>
+    </header>
+
+    <div id="stepIndicator" class="step-indicator" aria-label="Setup progress"></div>
+    <div id="phaseRail" class="phase-rail hidden" aria-hidden="true"></div>
+
+    <!-- welcome -->
+    <section class="panel wizard-panel" data-step="welcome">
+      <h2 class="wizard-title">Welcome — let's map your bar</h2>
+      <p class="wizard-lead">
+        We&rsquo;re glad you&rsquo;re here. Everything you just installed now lives right here in Chrome —
+        this is your <strong>home base</strong>. We coach you through two passes the first time; after that,
+        this is the dashboard you come back to every cycle.
+      </p>
+      <div class="coaching-framework">
+        <p class="coaching-framework-title">How setup works — two passes</p>
+        <div class="coaching-pass-grid">
+          <div class="coaching-pass-card coaching-pass-card--1">
+            <span class="coaching-pass-badge">Pass 1</span>
+            <p class="coaching-pass-name">Walk &amp; map</p>
+            <p class="coaching-pass-desc">Build your approved bottle map — names, stations, sizes. No levels yet. We stay humble when speech is messy; you fix what we got wrong.</p>
+          </div>
+          <div class="coaching-pass-card coaching-pass-card--2">
+            <span class="coaching-pass-badge">Pass 2</span>
+            <p class="coaching-pass-name">Count &amp; reconcile</p>
+            <p class="coaching-pass-desc">Count levels against that map. If everything lines up, we lock your baseline. If not, we hand you a line-by-line comparison and invite you to fix and re-upload.</p>
+          </div>
+        </div>
+        <p class="coaching-framework-foot">Every input is a proposal. Reconciliation is the conversation until map and count agree.</p>
+      </div>
+      <ul class="guide-list compact">
+        <li><strong>Pass 1:</strong> Walk every bar by voice — say <strong>Bar 1</strong>, <strong>Bar 2</strong>, <strong>Bar 3</strong> as you go</li>
+        <li>Stations inside each bar: Well one, Well two, Back bar, Beer cooler, Wine cooler…</li>
+        <li>Reconcile, review, and approve the map contract</li>
+        <li><strong>Pass 2:</strong> First live count — lock baseline or fix gaps</li>
+      </ul>
+      <div class="info-box dictation-box">
+        <p class="info-title">Better voice notes = less cleanup later</p>
+        <p class="info-body">
+          Built-in phone dictation (iPhone Notes, Android keyboard) works, but it garbles brand names,
+          bottle sizes, and fast bar-room speech — especially on a ladder with music in the background.
+        </p>
+        <p class="info-body" style="margin-top:10px;">
+          <strong>Wispr Flow</strong> (iPhone/Mac) is built for this: hold a button, talk naturally, export clean text.
+          Strong alternatives: <strong>VoiceInk</strong> (Mac, open source),
+          <strong>Whisperboard</strong> or <strong>TypeWhisper</strong> (iPhone, on-device).
+          Any of these beat raw phone mic for a full back-bar walk.
+        </p>
+        <p class="info-body dictation-foot" style="margin-top:10px;">
+          No special app required — but if your first upload looks rough, try one of the above before your next bar.
+        </p>
+      </div>
+      <div class="info-box welcome-core-box">
+        <p class="info-title">This program runs on your machine — no AI required</p>
+        <p class="info-body">
+          Everything you installed is <strong>self-contained</strong>. Voice walks, counts, reconciliation,
+          spreadsheets, PAR levels, and weekly Process all run locally on this laptop. Upload your notes,
+          fix what we got wrong, and lock your inventory — no subscription, no cloud, no API key needed.
+        </p>
+      </div>
+      <div class="welcome-ai-panel" id="welcomeAiPanel">
+        <div class="welcome-ai-head">
+          <p class="welcome-ai-eyebrow">Optional add-on</p>
+          <h3 class="welcome-ai-title">AI connection — only if you want it</h3>
+        </div>
+        <p class="welcome-ai-lead">
+          The core system does <strong>not</strong> use AI. Connect a key only if you want help reading
+          <strong>invoice photos</strong> from your phone (Southern Glazer&rsquo;s, Breakthru, etc.) instead of
+          typing line items yourself. Coming soon: wine-cooler <strong>video walks</strong> parsed from your phone.
+        </p>
+        <p class="field-hint welcome-ai-free-hint">
+          You do <strong>not</strong> need a paid AI subscription for the program itself. Many providers
+          (Claude, ChatGPT, Grok, and others) include API access with plans you may already have — we&rsquo;re
+          a working project and will add more free-friendly options as they emerge. Optional email updates
+          coming for weekly release notes.
+        </p>
+        <ul class="guide-list compact welcome-ai-list">
+          <li><strong>Without AI:</strong> paste invoice text, type numbers in spreadsheets, voice-walk and count as usual</li>
+          <li><strong>With AI:</strong> snap a photo of a paper invoice → line items land in All inputs</li>
+          <li><strong>Later:</strong> add or remove your key anytime under <strong>Settings → Optional AI</strong></li>
+        </ul>
+        <p id="welcomeAiStatus" class="field-hint welcome-ai-status"></p>
+        <label for="welcomeAiProvider">AI provider <span class="field-hint">(only for invoice photos)</span></label>
+        <select id="welcomeAiProvider">
+          <option value="">Not connecting now</option>
+          <option value="claude">Claude</option>
+          <option value="chatgpt">ChatGPT</option>
+          <option value="grok">Grok</option>
+          <option value="other">Other</option>
+        </select>
+        <label for="welcomeApiKey">API key <span class="field-hint">(stored on this computer only)</span></label>
+        <input id="welcomeApiKey" type="password" placeholder="Paste key here — or leave blank and skip" autocomplete="off" />
+        <div class="actions actions-trio welcome-ai-actions">
+          <button type="button" class="btn btn-primary" id="btnWelcomeSaveAi">Connect &amp; continue</button>
+          <button type="button" class="btn btn-secondary" id="btnWelcomeSkipAi">Skip — I&rsquo;ll type invoice numbers</button>
+          <a class="btn btn-ghost" href="/help/api-key" target="_blank" rel="noopener">What is an API key?</a>
+        </div>
+      </div>
+      <div class="setup-nav">
+        <span></span>
+        <button class="btn btn-primary" id="btnWelcomeNext" type="button">Begin setup without AI</button>
+      </div>
+    </section>
+
+    <!-- name_bar -->
+    <section class="panel wizard-panel hidden" data-step="name_bar">
+      <p class="step-eyebrow">Step 1 · Get started</p>
+      <h2 class="wizard-title text-center">Your Operation</h2>
+      <p class="wizard-lead text-center">
+        You can run as many bars as you need — dining room, patio, another floor, another building.
+        On your <strong>first walk</strong> you label them <strong>Bar 1</strong>, <strong>Bar 2</strong>, <strong>Bar 3</strong>
+        as you dictate. You rename them to real names after reconciliation.
+      </p>
+      <p class="field-hint text-center">
+        Planning a voice walk? Wispr Flow, VoiceInk, or Whisperboard beat raw phone dictation for brand names and sizes.
+      </p>
+      <label for="cycleMode" class="inline-label">Inventory cycle — shared across all bars</label>
+      <select id="cycleMode">
+        <option value="weekly" selected>Weekly — counts start every Monday</option>
+        <option value="monthly">Monthly — counts start on the 1st</option>
+      </select>
+      <div class="setup-nav">
+        <button class="btn btn-secondary" type="button" data-go="welcome">← Back</button>
+        <button class="btn btn-primary" id="btnNameContinue" type="button">Continue</button>
+      </div>
+    </section>
+
+    <!-- voice_walk -->
+    <section class="panel wizard-panel hidden" data-step="voice_walk">
+      <p class="step-eyebrow">Step 2 · Pass 1 — Walk</p>
+      <p class="step-subtitle">Walk the bar — build it as you go</p>
+      <div class="coaching-step-banner coaching-step-banner--pass1">
+        <span class="coaching-pass-badge">Pass 1</span>
+        <div class="coaching-step-copy">
+          <p><strong>What we need from you:</strong> Upload your walk notes <em>or</em> build the map manually here — your choice. If you upload, start each bar with <strong>Bar 1</strong>, <strong>Bar 2</strong>, <strong>Bar 3</strong>, then stations: "Well one," "Well two," "Back bar," "Beer cooler." Bottle names and sizes only — no levels yet.</p>
+          <p><strong>English or Spanish notes:</strong> Walk and count notes may be in English or Mexican Spanish (or mixed). Station words like <em>barra / pozo / barra trasera / nevera de cerveza</em> and levels like <em>lleno / vacío / medio</em> are recognized. UI stays English in v1.5.</p>
+          <p><strong>What happens next:</strong> We draft stations and a placement map from your notes. You review names and sizes, rename your bars at reconciliation, then continue.</p>
+        </div>
+      </div>
+      <p class="wizard-lead text-center">
+        <strong>Upload everything at once</strong> or paste below — one file per bar or one combined file.
+        You can also skip upload and add every bottle manually on this screen.
+      </p>
+      <input type="file" id="voiceNotesFile" class="hidden" accept=".txt,.text,.md,.markdown,.rtf,.note,text/plain,text/markdown,text/rtf" multiple />
+      <div id="walkUnparsed">
+        <div class="upload-zone" id="walkUploadZone">
+          <button class="btn btn-upload-primary" id="btnUploadFiles" type="button">Upload files here</button>
+          <p class="upload-zone-lead">Upload one or <strong>multiple files</strong> — .txt, .md, exports from iPhone Notes, Google Keep, Samsung Notes</p>
+          <p class="upload-zone-sub">We'll merge them and draft your bar map locally. Or paste / type in the box below instead.</p>
+        </div>
+        <div class="info-box">
+          <p class="info-title">How to speak your walk</p>
+          <p class="info-body">
+            <strong>Bar first, then stations, then bottles.</strong>
+            Different floor or building? Still just Bar 1, Bar 2, Bar 3 — you rename them later.
+          </p>
+          <p class="info-body" style="margin-top:10px;">
+            <strong>Inside each bar:</strong> Well one row one. Tito's 750. Ketel One liter.
+            Well one row two. Tanqueray 750. Well two. Bacardi 750. Back bar. Patron Silver 750. Beer cooler. Corona 12oz.
+            <strong>Next bar:</strong> Bar two. Well one. Tito's 750…
+          </p>
+          <div class="example-box">
+            <p class="box-label">Example — Bar 1 only</p>
+            <p class="example-text">
+              "Bar one. Well one row one. Tito's 750, Ketel One liter, Tanqueray 750.
+              Well two. Espolon Blanco liter, Evan Williams 750.
+              Back bar top shelf. Patron Silver 750, Don Julio 1942 750. Beer cooler. Corona 12oz…"
+            </p>
+          </div>
+          <div class="example-box">
+            <p class="box-label">Ejemplo en español (MX)</p>
+            <p class="example-text">
+              "Barra uno. Pozo uno fila uno. Tito's 750. Ketel One litro. Tanqueray 750.
+              Pozo dos. Espolon Blanco litro. Barra trasera. Patrón Silver 750. Nevera de cerveza. Corona 12oz…"
+            </p>
+          </div>
+        </div>
+        <div class="info-box parse-expect-box">
+          <p class="info-title">What happens when you parse</p>
+          <p class="info-body">
+            Real bar walks are messy — and that's expected. Fast speech, ladder work, and phone transcription
+            turn "Herradura Reposado 1L" into something unrecognizable. The first pass is a <strong>draft placement</strong>,
+            not a perfect inventory list.
+          </p>
+          <p class="info-body" style="margin-top:10px;">
+            Bottle sizes default to <code>750ml</code> until you correct them. Brand names may land on the wrong station
+            or split into fragments. You'll fix names, sizes, and categories in the next steps — and again on the road
+            every cycle. Upload is the starting line, not the finish.
+          </p>
+        </div>
+        <textarea id="voiceNotes" placeholder="Paste walk notes here (English or Spanish)…"></textarea>
+        <div class="actions walk-actions">
+          <button class="btn btn-ghost" id="btnToggleManual" type="button">Or build the whole map manually</button>
+          <div class="upload-notes-wrap">
+            <button class="btn btn-secondary" id="btnParsePasted" type="button">Parse pasted notes</button>
+            <p class="upload-formats">
+              Accepts <code>.txt</code> · <code>.md</code> · <code>.markdown</code> · <code>.rtf</code><br />
+              <span class="upload-formats-tip">From iPhone Notes, export as Markdown or .txt (not PDF).</span>
+            </p>
+          </div>
+          <button class="btn btn-secondary" id="btnVoiceDraft" type="button">Save draft</button>
+        </div>
+      </div>
+      <div id="walkParsed" class="hidden">
+        <div class="walk-review-gate">
+          <div class="parse-expect-banner">
+            <strong>Stop — review your map before you continue.</strong>
+            We turned your voice notes into a draft list. Names will be wrong. Sizes will default to 750ml.
+            You must clean this up here (or in a spreadsheet) before moving on.
+          </div>
+          <div class="size-shape-warning">
+            <strong>Bottle sizes are the #1 mistake.</strong>
+            Many liter bottles look like 750s (and vice versa). If you said "liter" or "leader" in your notes,
+            check every row — wrong size breaks your inventory math later.
+          </div>
+          <div class="parse-summary">
+            <span class="glow-dot"></span>
+            <span id="parseSummaryText"></span>
+            <div class="parse-summary-actions">
+              <button class="btn btn-upload-again btn-sm" id="btnReparse" type="button">Add more files</button>
+              <button class="btn btn-ghost btn-sm" id="btnAddMoreWalkFiles" type="button">Upload more</button>
+              <button class="btn btn-ghost btn-sm" id="btnReplaceWalkFiles" type="button">Replace all files</button>
+            </div>
+          </div>
+          <p class="field-hint parse-more-hint">Select <strong>multiple files at once</strong> or keep pressing Upload to add more — one file per bar or batch them together.</p>
+          <p class="review-path-label">Choose how you want to fix this:</p>
+          <div class="review-path-picker" role="tablist">
+            <button type="button" class="review-path-card active" data-review-path="screen" role="tab" aria-selected="true">
+              <span class="review-path-title">Fix on this screen</span>
+              <span class="review-path-desc">Spreadsheet-style table — edit names, stations, and sizes row by row. Works on phone (scroll sideways).</span>
+            </button>
+            <button type="button" class="review-path-card" data-review-path="spreadsheet" role="tab" aria-selected="false">
+              <span class="review-path-title">Use Excel or Google Sheets</span>
+              <span class="review-path-desc">Download our .csv, fix everything in the app you already know, then import it back.</span>
+            </button>
+          </div>
+          <div id="walkReviewScreen" class="walk-review-panel" role="tabpanel">
+            <div class="walk-review-toolbar">
+              <span id="walkReviewProgress" class="walk-review-progress"></span>
+              <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem; color:#a8784f;">
+                <input id="setupWeighToggle" type="checkbox" /> Enable weighing mode (V1.5 optional — for scale users)
+              </label>
+              <button class="btn btn-ghost btn-sm" id="btnMarkSizesReviewed" type="button">I've checked every size</button>
+            </div>
+            <div class="walk-review-table-wrap scroll-panel">
+              <table class="walk-review-table" id="walkReviewTable">
+                <thead>
+                  <tr>
+                    <th class="walk-col-bar hidden" id="walkColBarHead">Bar</th>
+                    <th>What we heard</th>
+                    <th>Product name</th>
+                    <th>Station</th>
+                    <th>Size</th>
+                    <th>Weight (oz) V1.5</th>
+                    <th>OK?</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="walkReviewBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div id="walkReviewSpreadsheet" class="walk-review-panel hidden" role="tabpanel">
+            <div class="info-box">
+              <p class="info-title">Spreadsheet workflow</p>
+              <ol class="spreadsheet-steps">
+                <li><strong>Download</strong> the correction sheet (.csv opens in Excel, Numbers, or Google Sheets).</li>
+                <li>Edit <code>product_name</code>, <code>station</code>, and <code>size</code>. Set <code>size_verified</code> to <code>yes</code> when you're sure.</li>
+                <li><strong>Import</strong> the saved file below — we match rows by <code>bottle_id</code>.</li>
+              </ol>
+              <p class="info-body dictation-foot">Keep the header row. Don't delete the <code>bottle_id</code> column.</p>
+            </div>
+            <div class="walk-review-sheet-actions">
+              <button class="btn btn-primary" id="btnDownloadWalkCsv" type="button">Download correction sheet (.csv)</button>
+              <button class="btn btn-secondary" id="btnImportWalkCsv" type="button">Import corrected sheet</button>
+              <input type="file" id="walkCsvFile" class="hidden" accept=".csv,.txt,text/csv" />
+            </div>
+          </div>
+          <div class="walk-review-stuck">
+            <p>
+              <strong>Can't figure this out?</strong> Download the sheet and hand it to a manager.
+              Or continue with our best guess — you'll fix it again in Step 5 Review (not ideal, but it works).
+            </p>
+            <button class="btn btn-ghost btn-sm" id="btnWalkReviewSkip" type="button">Continue with defaults — I'll fix later</button>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="btnToggleManual2" type="button">+ Add a bottle manually</button>
+      </div>
+      <div id="manualAddBox" class="add-station-box hidden">
+        <p class="box-label">Add a Bottle</p>
+        <div class="manual-bottle-row">
+          <input id="manualBottleName" type="text" placeholder="Product name..." />
+          <select id="manualBottleStation"></select>
+          <select id="manualBottleCategory">
+            <option value="spirits">Spirits</option>
+            <option value="vodka">Vodka</option>
+            <option value="gin">Gin</option>
+            <option value="rum">Rum</option>
+            <option value="tequila">Tequila</option>
+            <option value="whiskey">Whiskey</option>
+            <option value="scotch">Scotch</option>
+            <option value="cognac">Cognac</option>
+            <option value="liqueur">Liqueur</option>
+            <option value="beer">Beer</option>
+            <option value="wine">Wine</option>
+            <option value="mixer">Mixer</option>
+          </select>
+          <button class="btn btn-add" id="btnManualBottle" type="button">+</button>
+        </div>
+      </div>
+      <div class="setup-nav">
+        <button class="btn btn-secondary" type="button" data-go="name_bar">← Back</button>
+        <button class="btn btn-primary" id="btnWalkContinue" type="button">Review your map first</button>
+      </div>
+      <div class="hard-reset-row">
+        <button class="btn btn-hard-reset" type="button" data-hard-reset>↺ Start over — hard reset</button>
+      </div>
+    </section>
+
+    <!-- build_bar -->
+    <section class="panel wizard-panel hidden" data-step="build_bar">
+      <p class="step-eyebrow">Step 4 · Pass 1 — Review your bar layout</p>
+      <p class="wizard-lead text-center">
+        Your walk created these stations — wells, back bar, coolers. Switch tabs per bar. Reorder, rename, remove, or add any we missed.
+      </p>
+      <p class="coaching-inline coaching-inline--center" style="margin-bottom:16px">
+        <strong>What we need:</strong> Confirm the station layout matches your real bar.<br />
+        <strong>What happens next:</strong> Review &amp; Confirm — approve the full inventory map before counting.
+      </p>
+      <div class="build-bars-toolbar">
+        <div id="buildBarTabs" class="build-bar-tabs" aria-label="Bars you are building"></div>
+        <div class="build-bars-actions">
+          <button class="btn btn-secondary btn-sm" id="btnCreateAdditionalBar" type="button">+ Create additional bar</button>
+          <button class="btn btn-ghost btn-sm bar-delete-btn" id="btnDeleteBar" type="button">Delete this bar</button>
+        </div>
+      </div>
+      <div class="template-legend">
+        <span class="station-badge badge-well">well</span> Main · Service · Point
+        <span class="station-badge badge-backbar">back bar</span> Main · Point · Service
+        <span class="station-badge badge-walkin">walk in</span> Wine · Beer · Walk-in
+      </div>
+      <div id="stationList" class="station-list"></div>
+      <div class="template-actions">
+        <button class="btn btn-ghost btn-sm" id="btnResetTemplates" type="button">Reset starter templates</button>
+      </div>
+      <div class="add-station-box">
+        <p class="box-label">Add a Station</p>
+        <div class="add-station-row">
+          <input id="newStationName" type="text" placeholder="Station name..." />
+          <select id="newStationType">
+            <option value="well">Well</option>
+            <option value="back-bar">Back Bar</option>
+            <option value="storage">Storage</option>
+            <option value="walk-in">Walk-in</option>
+          </select>
+          <button class="btn btn-add" id="btnAddStation" type="button">+ Add</button>
+        </div>
+      </div>
+      <div class="setup-nav setup-nav-trio">
+        <button class="btn btn-secondary" type="button" data-go="reconcile">← Back</button>
+        <a class="btn btn-secondary" href="/help/standard-setups" target="_blank" rel="noopener">Learn Standard Setups</a>
+        <button class="btn btn-primary" id="btnBuildContinue" type="button">Continue</button>
+      </div>
+    </section>
+
+    <!-- reconcile -->
+    <section class="panel wizard-panel hidden" data-step="reconcile">
+      <p class="step-eyebrow">Step 3 · Pass 1 — Reconcile</p>
+      <h2 class="wizard-title">Reconcile Your Map</h2>
+      <p class="wizard-lead">
+        Pass 1 wrap-up: we turn your walk into an auditable draft map — with blanks where we're uncertain.
+        We never silently fix your bar; you see every gap before you approve.
+      </p>
+      <div class="coaching-inline coaching-inline--pass1">
+        <p><strong>What we need from you:</strong> Run reconciliation, scan the audit, and <strong>rename your bars</strong> from Bar 1 / Bar 2 / Bar 3 to real names.</p>
+        <p><strong>What happens next:</strong> Review your station layout per bar, then approve the map before counting.</p>
+      </div>
+      <div id="reconcileBarRename" class="reconcile-bar-rename hidden">
+        <p class="box-label">Name your bars</p>
+        <p class="field-hint" id="reconcileBarRenameHint">Your walk used Bar 1, Bar 2, Bar 3 — give each its real name before you continue.</p>
+        <div id="reconcileBarRenameStepper" class="reconcile-bar-rename-stepper hidden">
+          <p id="reconcileBarRenameCounter" class="reconcile-bar-rename-counter">Bar 1 of 3</p>
+          <div id="reconcileBarRenameDots" class="reconcile-bar-rename-dots" aria-label="Bars to name"></div>
+          <div class="reconcile-bar-rename-row">
+            <span class="reconcile-bar-rename-label" id="reconcileBarRenameSlot">Bar 1</span>
+            <input
+              type="text"
+              id="reconcileBarRenameActive"
+              class="reconcile-bar-name-input build-bar-name-input"
+              placeholder="e.g. River Room, Garden Terrace, The Cellar"
+              autocomplete="organization"
+            />
+          </div>
+          <div class="reconcile-bar-rename-nav">
+            <button type="button" class="btn btn-secondary btn-sm" id="btnReconcileBarPrev" disabled>← Previous bar</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btnReconcileBarNext">Next bar →</button>
+          </div>
+        </div>
+        <div id="reconcileBarRenameList" class="reconcile-bar-rename-list hidden"></div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" id="btnReconcile" type="button">Run reconciliation</button>
+      </div>
+      <div id="reconcilePreview" class="reconcile-preview"></div>
+      <div class="setup-nav setup-nav-trio" id="reconcileNav">
+        <button class="btn btn-secondary" type="button" data-go="voice_walk">← Back</button>
+        <button class="btn btn-map-toolkit hidden" id="btnOpenReconcileToolkit" type="button" aria-expanded="false" aria-controls="mapToolkitModal">
+          Print / Download MAP
+        </button>
+        <button class="btn btn-secondary" id="btnReconcileNext" type="button" data-go="build_bar" disabled>Next step →</button>
+      </div>
+      <div class="hard-reset-row">
+        <button class="btn btn-hard-reset" type="button" data-hard-reset>↺ Start over — hard reset</button>
+      </div>
+    </section>
+
+    <!-- map_review -->
+    <section class="panel wizard-panel hidden" data-step="map_review">
+      <p class="step-eyebrow">Step 5 · Pass 1 — Approve map</p>
+      <h2 class="wizard-title text-center">Review &amp; Confirm</h2>
+      <p class="wizard-lead text-center">
+        Here's your full inventory map for <span id="reviewBarName" class="review-bar-name"></span> —
+        <strong>the contract Pass 2 will count against.</strong>
+      </p>
+      <div class="coaching-inline coaching-inline--center">
+        <p><strong>What we need from you:</strong> Confirm every bottle, station, and size is right — or fix it here.</p>
+        <p><strong>What happens next:</strong> Pass 2 — your first live count. We reconcile what you say to this map line by line.</p>
+      </div>
+      <div id="reviewStats" class="review-stats"></div>
+      <div id="bottleGroupsReview" class="review-editor scroll-panel"></div>
+      <div id="reviewAddBox" class="review-add-box hidden">
+        <p class="box-label">Add a bottle</p>
+        <div class="manual-bottle-row">
+          <input id="reviewAddName" type="text" placeholder="Product name..." />
+          <select id="reviewAddStation"></select>
+          <select id="reviewAddSize">
+            <option value="750ml" selected>750ml</option>
+            <option value="1L">1L</option>
+            <option value="1.75L">1.75L</option>
+            <option value="375ml">375ml</option>
+            <option value="200ml">200ml</option>
+            <option value="50ml">50ml</option>
+          </select>
+          <select id="reviewAddCategory">
+            <option value="spirits">Spirits</option>
+            <option value="vodka">Vodka</option>
+            <option value="gin">Gin</option>
+            <option value="rum">Rum</option>
+            <option value="tequila">Tequila</option>
+            <option value="whiskey">Whiskey</option>
+            <option value="scotch">Scotch</option>
+            <option value="cognac">Cognac</option>
+            <option value="liqueur">Liqueur</option>
+            <option value="beer">Beer</option>
+            <option value="wine">Wine</option>
+            <option value="mixer">Mixer</option>
+          </select>
+          <button class="btn btn-add" id="btnReviewAddConfirm" type="button">+</button>
+        </div>
+      </div>
+      <div class="setup-nav setup-nav-trio has-toolkit">
+        <button class="btn btn-secondary" type="button" data-go="build_bar">← Back</button>
+        <button class="btn btn-map-toolkit" id="btnOpenMapToolkit" type="button" aria-expanded="false" aria-controls="mapToolkitModal">
+          Print / Download MAP
+        </button>
+        <button class="btn btn-primary" id="btnApproveMap" type="button">Map approved — start counting</button>
+      </div>
+      <div class="hard-reset-row">
+        <button class="btn btn-hard-reset" type="button" data-hard-reset>↺ Start over — hard reset</button>
+      </div>
+    </section>
+
+    <!-- first_count -->
+    <section class="panel wizard-panel hidden" data-step="first_count">
+      <p class="step-eyebrow">Step 6 · Pass 2 — Count</p>
+      <h2 class="wizard-title">First Live Inventory Count</h2>
+      <div class="coaching-step-banner coaching-step-banner--pass2">
+        <span class="coaching-pass-badge coaching-pass-badge--2">Pass 2</span>
+        <div class="coaching-step-copy">
+          <p><strong>What we need from you:</strong> Station by station — each bottle on your approved map with its level (full or tenths).</p>
+          <p><strong>What happens next:</strong> We compare your count to the walk map. Golden match → lock baseline. Gaps → we hand back a comparison; fix the map or re-upload until it lines up.</p>
+        </div>
+      </div>
+      <p class="wizard-lead">
+        This count becomes your baseline for every future cycle. We block a bad baseline — reconcile surprises before you finish.
+      </p>
+      <div id="countBanner" class="count-banner hidden" role="alert" aria-live="assertive"></div>
+      <div class="count-action-bar">
+        <button class="btn btn-secondary" id="btnCountReminders" type="button" aria-expanded="false" aria-controls="countRemindersPanel">
+          Best practices
+        </button>
+        <button class="btn btn-primary" id="btnEnterCount" type="button">Enter your count</button>
+      </div>
+      <div id="countRemindersPanel" class="count-reminders-panel hidden" role="region" aria-label="Count reminders">
+        <p class="count-reminders-title">Before you count</p>
+        <ul class="count-reminders-list">
+          <li>Count <strong>full bottles</strong> and <strong>open bottle levels</strong> (tenths) against your approved map — station by station.</li>
+          <li>Liter bottles and 750ml bottles look alike on the shelf. Double-check size before you lock a number.</li>
+          <li>Call out partials honestly — a bad baseline poisons every future cycle.</li>
+          <li>One station at a time. Finish a section before you jump to the next.</li>
+          <li>When every station is entered, mark the count complete to open home base.</li>
+        </ul>
+      </div>
+      <div id="countEntryPanel" class="count-entry-panel">
+        <input type="file" id="countNotesFile" class="hidden" accept=".txt,.text,.md,.markdown,.rtf,.note,text/plain,text/markdown,text/rtf" multiple />
+        <div id="countUnparsed">
+          <div class="upload-zone" id="countUploadZone">
+            <button class="btn btn-upload-primary" id="btnUploadCountFiles" type="button">Upload count files here</button>
+            <p class="upload-zone-lead">Upload one or <strong>multiple files</strong> — one per bar or one combined count</p>
+            <p class="upload-zone-sub">Keep pressing Upload to add more files if you missed one. We merge and parse everything together.</p>
+          </div>
+          <div class="info-box">
+            <p class="info-title">How to submit your count</p>
+            <p class="info-body">
+              <strong>Easiest option:</strong> Paste below, then click <strong>Process</strong> — or upload a file from your phone.
+              Speak into <strong>iPhone Notes</strong>, <strong>Google Keep</strong>, <strong>Samsung Notes</strong>,
+              or any app that exports <code>.txt</code> or <code>.md</code> — then transfer the file to this computer and upload.
+            </p>
+            <p class="info-body" style="margin-top:10px;">
+              Or paste your verbal count directly in the box.
+              <strong>Call out the station, then each bottle with its level.</strong>
+              Full bottles as <code>one</code> or <code>2</code> (or Spanish <code>uno</code> / <code>lleno</code>).
+              Open bottles as tenths: <code>point five</code>, <code>0.5</code>, <code>half</code>, or Spanish <code>medio</code> / <code>vacío</code>.
+            </p>
+            <div class="example-box">
+              <p class="box-label">Example</p>
+              <p class="example-text">
+                "Well one. Tito's one. Ketel One point five. Tanqueray one. Bacardi zero.
+                Row two. Espolon one. Evan Williams point three.
+                Back bar top shelf. Patron one. Don Julio point eight…"
+              </p>
+            </div>
+            <div class="example-box">
+              <p class="box-label">Ejemplo en español</p>
+              <p class="example-text">
+                "Pozo uno. Tito's uno. Ketel One punto cinco. Tanqueray lleno. Bacardi vacío.
+                Fila dos. Espolon uno. Barra trasera. Patrón uno. Don Julio punto ocho…"
+              </p>
+            </div>
+          </div>
+          <div class="info-box parse-expect-box">
+            <p class="info-title">What happens when you Process</p>
+            <p class="info-body">
+              We match your dictation against the <strong>approved map</strong> from Step 5 and flag anything that
+              doesn't line up — new bottles on the shelf, items you missed, duplicate counts. Messy speech is normal;
+              reconcile surprises before you lock the baseline.
+            </p>
+          </div>
+          <textarea id="countNotes" placeholder="Paste count notes here (English or Spanish)…"></textarea>
+          <div class="actions walk-actions">
+            <div class="upload-notes-wrap">
+              <button class="btn btn-ghost" id="btnUploadCount" type="button">Upload files</button>
+              <p class="upload-formats">
+                Accepts <code>.txt</code> · <code>.md</code> · <code>.markdown</code> · <code>.rtf</code><br />
+                iPhone Notes · Google Keep · Samsung Notes · plain-text exports<br />
+                <span class="upload-formats-tip">Paste above, then click <strong>Process</strong>.</span>
+              </p>
+            </div>
+            <button class="btn btn-primary" id="btnProcessCount" type="button">Process &amp; open admin</button>
+          </div>
+        </div>
+        <div id="countParsed" class="hidden">
+          <div class="parse-expect-banner">
+            <strong>Review your count before you finish.</strong>
+            We matched your notes to the approved map. Fix any level that looks wrong — then open home base.
+          </div>
+          <div class="parse-summary">
+            <span class="glow-dot"></span>
+            <span id="countSummaryText"></span>
+            <div class="parse-summary-actions">
+              <button class="btn btn-upload-again btn-sm" id="btnRecount" type="button">Add more files</button>
+              <button class="btn btn-ghost btn-sm" id="btnAddMoreCountFiles" type="button">Upload more</button>
+              <button class="btn btn-ghost btn-sm" id="btnReplaceCountFiles" type="button">Replace all files</button>
+            </div>
+          </div>
+          <p class="field-hint parse-more-hint">Select <strong>multiple count files at once</strong> or keep pressing Upload to add more — one file per bar or batch them together.</p>
+          <div id="countReconcileReport" class="count-reconcile-report hidden" role="region" aria-label="Count versus map reconciliation"></div>
+          <div id="countReviewToolbar" class="count-review-toolbar hidden">
+            <p class="count-review-toolbar-label">Fix each gap in the table — then finish. Up to 2 minor misses can stay.</p>
+            <button class="btn btn-ghost btn-sm" type="button" id="btnToggleCountMap">Show full map</button>
+          </div>
+          <div class="walk-review-table-wrap scroll-panel">
+            <table class="walk-review-table" id="countReviewTable">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Station</th>
+                  <th>Par</th>
+                  <th>Level</th>
+                  <th>Status</th>
+                  <th>Fix</th>
+                </tr>
+              </thead>
+              <tbody id="countReviewBody"></tbody>
+            </table>
+          </div>
+          <div class="count-tally-bar" id="countTallyBar">
+            <p class="count-tally-lead" id="countTallyLead">Paste your count above, then click Process.</p>
+            <div class="count-tally-actions">
+              <button class="btn btn-ghost btn-sm" id="btnEditCount" type="button">Edit count notes</button>
+              <button class="btn btn-primary btn-tally" id="btnFirstCountDone" type="button" disabled>Process your count first</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="count-process-sticky" id="countProcessSticky">
+        <div class="count-process-sticky-copy">
+          <p class="count-process-sticky-title">Finish this count</p>
+          <p class="count-process-sticky-hint" id="countStickyHint">Paste your count above, then click Process.</p>
+        </div>
+        <button type="button" class="btn btn-primary btn-process-sticky" id="btnProcessSticky">Process &amp; open admin</button>
+      </div>
+      <div class="setup-nav setup-nav-trio" id="countSetupNav">
+        <button class="btn btn-secondary" type="button" data-go="map_review">← Back</button>
+        <span class="setup-nav-hint" id="countNavHint">Paste count → Process → admin opens automatically.</span>
+        <button class="btn btn-primary" id="btnTallyFinish" type="button">Process &amp; open admin</button>
+      </div>
+      <div class="hard-reset-row">
+        <button class="btn btn-hard-reset" type="button" data-hard-reset>↺ Start over — hard reset</button>
+      </div>
+    </section>
+
+    <p class="status" id="status"></p>
+
+    <div id="mapToolkitModal" class="map-toolkit-modal hidden" role="dialog" aria-modal="true" aria-labelledby="mapToolkitTitle">
+      <button type="button" class="map-toolkit-modal-backdrop" id="btnMapModalCloseBackdrop" aria-label="Close"></button>
+      <div class="map-toolkit-modal-sheet">
+        <button type="button" class="map-toolkit-modal-close" id="btnMapModalClose" aria-label="Close">×</button>
+        <p class="map-toolkit-eyebrow">Export &amp; print</p>
+        <h3 class="map-toolkit-title" id="mapToolkitTitle">Print / Download MAP</h3>
+        <p class="map-toolkit-lead">
+          Print or copy for the floor. Download machine-readable files — <strong>CSV</strong>, <strong>Excel</strong>,
+          or <strong>XML</strong> — for spreadsheets, scripts, or your POS pipeline.
+        </p>
+        <div class="map-toolkit-actions">
+          <button class="btn btn-secondary" id="btnMapPrint" type="button">Print walk sheet</button>
+          <button class="btn btn-secondary" id="btnMapCopy" type="button">
+            <span id="btnMapCopyLabel">Copy map to clipboard</span>
+          </button>
+          <p id="mapToolkitFeedback" class="map-toolkit-feedback hidden" role="status"></p>
+          <p class="box-label map-download-section-label">Walk sheet — field use</p>
+          <div class="map-download-grid">
+            <button class="btn btn-ghost btn-sm map-export-btn" type="button" data-format="walk_csv">Walk sheet (.csv)</button>
+            <button class="btn btn-ghost btn-sm map-export-btn" type="button" data-format="walk_xlsx">Walk sheet (.xlsx)</button>
+          </div>
+          <p class="box-label map-download-section-label">Full bottle audit — CSV / Excel / XML</p>
+          <div class="map-download-grid map-download-grid-audit">
+            <button class="btn btn-ghost btn-sm map-export-btn" type="button" data-format="csv">Audit (.csv)</button>
+            <button class="btn btn-ghost btn-sm map-export-btn" type="button" data-format="xlsx">Audit (.xlsx)</button>
+            <button class="btn btn-ghost btn-sm map-export-btn" type="button" data-format="xml">Audit (.xml)</button>
+          </div>
+        </div>
+        <div class="map-toolkit-digital">
+          <p class="box-label">Digital view — station by station</p>
+          <div id="mapDigitalView" class="map-digital-view scroll-panel"></div>
+          <button class="btn btn-ghost btn-sm" id="btnMapDigitalAdd" type="button">+ Add a missed product</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="processOverlay" class="process-overlay hidden" role="status" aria-live="polite">
+    <div class="process-overlay-card">
+      <span class="process-overlay-spinner" aria-hidden="true"></span>
+      <p class="process-overlay-title" id="processOverlayTitle">Running inventory math…</p>
+      <p class="process-overlay-sub" id="processOverlaySub">Locking your cycle and opening home base.</p>
+      <p class="process-overlay-fallback"><a href="/home" id="processOverlayHomeLink">Open admin manually</a> if redirect does not start.</p>
+    </div>
+  </div>
+  <script src="/static/js/osb-app.js?v=20260705-positioning"></script>
+</body>
+</html>
