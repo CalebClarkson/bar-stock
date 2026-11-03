@@ -98,7 +98,7 @@ def _extract_json_blob(text: str) -> dict[str, Any]:
 
 def _anthropic_vision(b64: str, media_type: str, api_key: str, prompt: str) -> dict[str, Any]:
     body = {
-        "model": "claude-sonnet-4-20250514",
+        "model": "claude-sonnet-5-5",
         "max_tokens": 4096,
         "messages": [
             {
@@ -167,7 +167,7 @@ def _openai_vision(b64: str, media_type: str, api_key: str, prompt: str) -> dict
 
 def _anthropic_text(api_key: str, prompt: str, invoice_text: str) -> dict[str, Any]:
     body = {
-        "model": "claude-sonnet-4-20250514",
+        "model": "claude-sonnet-5-5",
         "max_tokens": 4096,
         "messages": [
             {

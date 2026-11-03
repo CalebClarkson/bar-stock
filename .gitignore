@@ -9,3 +9,9 @@ localhost+1-key.pem
 .vercel
 .stress-sandbox/
 data/_stress-reports/
+
+# Local config and backups
+venue.env
+backups/
+.venv/
+.pytest_cache/

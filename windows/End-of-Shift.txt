@@ -1,0 +1,16 @@
+BAR STOCK - END OF SHIFT
+
+1. Square Dashboard > Reports > Item sales. Choose today's date.
+   Press Export > Item sales detail CSV.
+2. Open Bar Stock (shortcut on the desktop) and sign in.
+3. Square sales tab > choose the file > Import.
+   Importing the same day twice is safe.
+4. If the Mapping tab shows a number: link each new drink to its stock,
+   or press No stock for food and anything else that isn't bar stock.
+5. Reports tab: give any comps a reason (wastage, overpour, training or staff drinks).
+6. Wastage tab: log spills and anything not rung through Square.
+7. Batches tab: log any batch made.
+
+Deliveries: use the Deliveries tab once checked in.
+Stocktake: on the Count tab, count Bar and Cellar, then press Finish stocktake once.
+Do not add a delivery during a stocktake.

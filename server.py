@@ -16,6 +16,8 @@ import math
 import os
 import re
 import secrets
+import threading
+import time
 import urllib.error
 
 import uuid
@@ -25,10 +27,23 @@ from functools import wraps
 from typing import Any
 
 from flask import Flask, Response, jsonify, redirect, request, send_from_directory, session
+from werkzeug.security import check_password_hash, generate_password_hash
+
+_ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "venue.env")
+if os.path.isfile(_ENV_FILE):
+    with open(_ENV_FILE, encoding="utf-8") as _fh:
+        for _line in _fh:
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _v = _line.split("=", 1)
+                os.environ.setdefault(_k.strip(), _v.strip())
 
 VERSION = "1.5.0-v1.5-public-2026-07-10"  # V1.5 public release — Spanish-ready notes + full toolkit
 PORT = int(os.environ.get("PORT", "5052"))
-DEMO_MODE = os.environ.get("OSB_DEMO_MODE", "1") != "0"
+# Loopback by default; set OSB_BIND=0.0.0.0 (or a Tailscale/LAN IP) to serve other devices.
+BIND_HOST = os.environ.get("OSB_BIND", "127.0.0.1")
+# Set OSB_HTTPS=1 when served over HTTPS (e.g. tailscale serve) so cookies are Secure-only.
+HTTPS_ONLY = os.environ.get("OSB_HTTPS", "0") == "1"
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _STATIC = os.path.join(_DIR, "static")
@@ -53,6 +68,8 @@ _SECRETS_FILE = os.path.join(_DATA, "ai_secrets.json")
 _PEOPLE_FILE = os.path.join(_DATA, "people.json")
 _STAFF_BOARD_FILE = os.path.join(_DATA, "staff_board.json")
 _SESSION_SECRET_FILE = os.path.join(_DATA, "session_secret.txt")
+_THROTTLE_FILE = os.path.join(_DATA, "login_throttle.json")
+_SETUP_TOKEN_FILE = os.path.join(_DATA, "setup_token.txt")
 
 from invoice_parse import parse_invoice  # noqa: E402
 
@@ -156,13 +173,19 @@ def _ensure_session_secret() -> str:
     key = secrets.token_hex(32)
     with open(_SESSION_SECRET_FILE, "w", encoding="utf-8") as fh:
         fh.write(key)
+    try:
+        os.chmod(_SESSION_SECRET_FILE, 0o600)
+    except OSError:
+        pass
     return key
 
 
 app.secret_key = _ensure_session_secret()
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=14)
+app.config["SESSION_COOKIE_SAMESITE"] = "Strict"
+app.config["SESSION_COOKIE_SECURE"] = HTTPS_ONLY
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=16)
+app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
 
 # V1.5 team access — default manager permissions (admin overrides per person)
 DEFAULT_MANAGER_PERMISSIONS: dict[str, bool] = {
@@ -289,17 +312,91 @@ def _valid_pin(pin: str) -> bool:
     return bool(re.fullmatch(r"\d{6}", (pin or "").strip()))
 
 
-def _hash_pin(pin: str, salt: str | None = None) -> tuple[str, str]:
-    salt = salt or secrets.token_hex(16)
-    digest = hashlib.sha256(f"{salt}:{pin.strip()}".encode("utf-8")).hexdigest()
-    return digest, salt
+def _legacy_digest(pin: str, salt: str) -> str:
+    return hashlib.sha256(f"{salt}:{pin.strip()}".encode("utf-8")).hexdigest()
 
 
-def _check_pin(pin: str, pin_hash: str, salt: str) -> bool:
-    if not pin_hash or not salt:
+def _hash_pin(pin: str) -> str:
+    return generate_password_hash(pin.strip(), method="scrypt")
+
+
+def _check_pin(pin: str, user: dict[str, Any]) -> bool:
+    """Verify a PIN. Handles scrypt, wrapped legacy, and unmigrated legacy hashes."""
+    stored = user.get("pin_hash") or ""
+    salt = user.get("pin_salt") or ""
+    if not stored:
         return False
-    digest, _ = _hash_pin(pin, salt)
-    return secrets.compare_digest(digest, pin_hash)
+    if stored.startswith("wrapped:"):
+        return check_password_hash(stored[len("wrapped:"):], _legacy_digest(pin, salt))
+    if salt:
+        return secrets.compare_digest(_legacy_digest(pin, salt), stored)
+    return check_password_hash(stored, pin.strip())
+
+
+def _migrate_pin_hashes() -> int:
+    """Wrap old salted SHA-256 hashes in scrypt so no fast hash stays on disk."""
+    people = _read_json(_PEOPLE_FILE, None)
+    if not isinstance(people, dict):
+        return 0
+    changed = 0
+    for u in people.get("users") or []:
+        stored = u.get("pin_hash") or ""
+        if stored and u.get("pin_salt") and not stored.startswith("wrapped:"):
+            u["pin_hash"] = "wrapped:" + generate_password_hash(stored, method="scrypt")
+            changed += 1
+    if changed:
+        _save_people(people)
+    return changed
+
+
+_MAX_USER_FAILS = 5
+_MAX_IP_FAILS = 20
+_LOCK_SECONDS = 15 * 60
+_throttle_lock = threading.Lock()
+
+
+def _throttle_keys(user_id: str) -> list[tuple[str, int]]:
+    return [(f"user:{user_id}", _MAX_USER_FAILS), (f"ip:{request.remote_addr}", _MAX_IP_FAILS)]
+
+
+def _login_locked(user_id: str) -> int:
+    """Seconds left on a lockout, or 0. Survives restarts."""
+    now = time.time()
+    with _throttle_lock:
+        data = _read_json(_THROTTLE_FILE, {})
+    left = 0
+    for key, limit in _throttle_keys(user_id):
+        row = data.get(key) or {}
+        if row.get("fails", 0) >= limit and row.get("until", 0) > now:
+            left = max(left, int(row["until"] - now) + 1)
+    return left
+
+
+def _record_login(user_id: str, ok: bool) -> None:
+    now = time.time()
+    with _throttle_lock:
+        data = _read_json(_THROTTLE_FILE, {})
+        for key, _limit in _throttle_keys(user_id):
+            row = data.get(key) or {}
+            if ok:
+                data.pop(key, None)
+                continue
+            fails = 1 if row.get("until", 0) <= now else row.get("fails", 0) + 1
+            data[key] = {"fails": fails, "until": now + _LOCK_SECONDS}
+        _write_json(_THROTTLE_FILE, data)
+
+
+def _setup_token() -> str:
+    """One-time token needed to create the first admin from a browser."""
+    token = ""
+    if os.path.isfile(_SETUP_TOKEN_FILE):
+        with open(_SETUP_TOKEN_FILE, encoding="utf-8") as fh:
+            token = fh.read().strip()
+    if not token:
+        token = secrets.token_urlsafe(16)
+        with open(_SETUP_TOKEN_FILE, "w", encoding="utf-8") as fh:
+            fh.write(token)
+    return token
 
 
 def _user_public(u: dict[str, Any]) -> dict[str, Any]:
@@ -346,20 +443,11 @@ def _session_user() -> dict[str, Any] | None:
 def _auth_status() -> dict[str, Any]:
     people = _load_people()
     users = [u for u in people.get("users") or [] if u.get("active", True)]
-    enabled = bool(users)
-    current = _session_user() if enabled else {
-        "id": "open-admin",
-        "name": "Admin",
-        "login": "admin",
-        "role": "admin",
-        "venue_id": None,
-        "active": True,
-        "permissions": dict(ADMIN_PERMISSIONS),
-        "open_mode": True,
-    }
+    current = _session_user() if users else None
     return {
-        "auth_enabled": enabled,
-        "logged_in": bool(current) if enabled else True,
+        "auth_enabled": True,
+        "needs_first_admin": not users,
+        "logged_in": bool(current),
         "user": current,
         "users_public": [
             {"id": u.get("id"), "name": u.get("name"), "login": u.get("login"), "role": u.get("role")}
@@ -368,13 +456,55 @@ def _auth_status() -> dict[str, Any]:
     }
 
 
+ROLE_RANK = {"staff": 1, "manager": 2, "admin": 3}
+
+
+def _has_role(minimum: str) -> bool:
+    user = _session_user()
+    return bool(user) and ROLE_RANK.get(user.get("role"), 0) >= ROLE_RANK[minimum]
+
+
 def _require_admin():
-    st = _auth_status()
-    if not st["auth_enabled"]:
-        return None  # open mode = admin
-    user = st.get("user")
-    if not user or user.get("role") != "admin":
+    if not _has_role("admin"):
         return jsonify({"error": "Admin only"}), 403
+    return None
+
+
+# Reachable without a session. /api/people POST is only open while no users exist
+# (see _guard_request); everything else under /api and every page is behind login.
+_PUBLIC_PATHS = {"/ping", "/stock", "/favicon.ico", "/api/auth/status", "/api/auth/login", "/api/auth/logout"}
+_LEGACY_PAGES = ("/setup", "/home", "/help/", "/downloads/")
+
+
+@app.before_request
+def _guard_request():
+    path = request.path
+    if request.method not in ("GET", "HEAD", "OPTIONS"):
+        origin = request.headers.get("Origin")
+        if origin and origin.split("://", 1)[-1] != request.host:
+            return jsonify({"error": "Cross-origin request refused"}), 403
+        if request.headers.get("Sec-Fetch-Site") in ("cross-site", "same-site"):
+            return jsonify({"error": "Cross-origin request refused"}), 403
+    if path in _PUBLIC_PATHS or path.startswith("/static/"):
+        return None
+    if path == "/":
+        return redirect("/stock")
+    if path == "/api/people" and request.method == "POST" and not _load_people().get("users"):
+        body = request.get_json(silent=True) or {}
+        if secrets.compare_digest(str(body.get("setup_token") or ""), _setup_token()):
+            return None
+        return jsonify({"error": "Setup token required"}), 403
+    if not _session_user():
+        if path.startswith("/api/"):
+            return jsonify({"error": "Login required"}), 401
+        return redirect("/stock")
+    if path.startswith("/api/venue/"):
+        return None  # role checks live on each venue route
+    # The original screens and their API are admin-only; day-to-day use goes through /stock.
+    if not _has_role("admin"):
+        if path.startswith("/api/"):
+            return jsonify({"error": "Admin only"}), 403
+        return redirect("/stock")
     return None
 
 
@@ -1426,16 +1556,16 @@ def _analytics_payload(cfg: dict[str, Any], bar: dict[str, Any]) -> dict[str, An
 
 
 @app.after_request
-def _cors(resp):
-    resp.headers["Access-Control-Allow-Origin"] = "*"
-    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
-    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+def _security_headers(resp):
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["Referrer-Policy"] = "same-origin"
     return resp
 
 
 @app.route("/ping")
 def ping():
-    return jsonify({"status": "ok", "app": "osb-program", "version": VERSION, "port": PORT})
+    return jsonify({"status": "ok"})
 
 
 @app.route("/")
@@ -2731,19 +2861,23 @@ def api_auth_login():
         target = _find_user(people, login=login)
     elif len(users) == 1:
         target = users[0]
-    else:
-        # Try match pin against all (small staff only)
-        for u in users:
-            if _check_pin(pin, u.get("pin_hash") or "", u.get("pin_salt") or ""):
-                target = u
-                break
-        if target is None:
-            return jsonify({"error": "Pick a person, then enter their 6-digit PIN"}), 400
-
     if not target or not target.get("active", True):
-        return jsonify({"error": "Unknown or inactive login"}), 404
-    if not _check_pin(pin, target.get("pin_hash") or "", target.get("pin_salt") or ""):
+        return jsonify({"error": "Pick a person, then enter their 6-digit PIN"}), 400
+
+    locked = _login_locked(target["id"])
+    if locked:
+        return jsonify({"error": f"Too many tries. Locked for {locked // 60 + 1} more minutes."}), 429
+    if not _check_pin(pin, target):
+        _record_login(target["id"], False)
         return jsonify({"error": "Wrong PIN"}), 401
+    _record_login(target["id"], True)
+    if (target.get("pin_salt") or "") != "":
+        people_now = _load_people()
+        fresh = _find_user(people_now, user_id=target["id"])
+        if fresh:
+            fresh["pin_hash"] = _hash_pin(pin)
+            fresh.pop("pin_salt", None)
+            _save_people(people_now)
 
     session.clear()
     session.permanent = True
@@ -2797,17 +2931,18 @@ def api_people_list():
 
 @app.route("/api/people", methods=["POST"])
 def api_people_create():
-    """Create admin (first PIN) or a bar manager."""
-    denied = _require_admin()
-    if denied:
-        return denied
+    """Create the first admin (guarded by setup token) or a team member."""
+    if _load_people().get("users"):
+        denied = _require_admin()
+        if denied:
+            return denied
     body = request.get_json(force=True) or {}
     name = (body.get("name") or "").strip()[:80]
     login = re.sub(r"[^a-zA-Z0-9._-]", "", (body.get("login") or "").strip())[:32].lower()
     pin = str(body.get("pin") or "").strip()
     role = (body.get("role") or "manager").strip().lower()
-    if role not in ("admin", "manager"):
-        role = "manager"
+    if role not in ROLE_RANK:
+        role = "staff"
     venue_id = (body.get("venue_id") or "").strip() or None
     perms_in = body.get("permissions") if isinstance(body.get("permissions"), dict) else {}
 
@@ -2827,13 +2962,8 @@ def api_people_create():
         role = "admin"
         venue_id = None
 
-    if role == "manager":
-        if not venue_id:
-            return jsonify({"error": "Bar managers need a venue assigned"}), 400
-        registry = _load_bars_registry()
-        _, vbar = _find_bar(registry, venue_id)
-        if vbar is None:
-            return jsonify({"error": "Venue not found"}), 404
+    if role != "admin":
+        venue_id = None  # single-venue install
         perms = dict(DEFAULT_MANAGER_PERMISSIONS)
         for k, v in perms_in.items():
             if k in DEFAULT_MANAGER_PERMISSIONS:
@@ -2842,15 +2972,13 @@ def api_people_create():
         perms = dict(ADMIN_PERMISSIONS)
         venue_id = None
 
-    pin_hash, salt = _hash_pin(pin)
     user = {
         "id": _uid("user-"),
         "name": name,
         "login": login,
         "role": role,
         "venue_id": venue_id,
-        "pin_hash": pin_hash,
-        "pin_salt": salt,
+        "pin_hash": _hash_pin(pin),
         "permissions": perms,
         "active": True,
         "created_at": _now(),
@@ -2929,9 +3057,8 @@ def api_people_reset_pin(user_id: str):
     user = _find_user(people, user_id=user_id)
     if not user:
         return jsonify({"error": "Person not found"}), 404
-    pin_hash, salt = _hash_pin(pin)
-    user["pin_hash"] = pin_hash
-    user["pin_salt"] = salt
+    user["pin_hash"] = _hash_pin(pin)
+    user.pop("pin_salt", None)
     user["updated_at"] = _now()
     _save_people(people)
     return jsonify({"status": "ok", "user": _user_public(user), "message": "PIN reset — give them the new 6 digits."})
@@ -3329,6 +3456,16 @@ def api_pos_log_delete(entry_id: str):
     return jsonify({"status": "deleted", "id": entry_id})
 
 
+@app.route("/stock")
+def stock_page():
+    return send_from_directory(_STATIC, "stock.html")
+
+
+import venue_api  # noqa: E402
+
+venue_api.register(app, _DATA, _has_role, _session_user)
+
+
 # V1.5 Weight support API
 @app.route("/api/weights", methods=["GET"])
 def api_weights():
@@ -3345,15 +3482,17 @@ if __name__ == "__main__":
     print("\n  Open Source Barware — Chrome Program")
     print("  " + "-" * 54)
     print(f"  Version:    {VERSION}  (V1.5 Phase 1 — Accuracy & Mobile)")
-    print(f"  Setup:      http://localhost:{PORT}/")
-    print(f"  Home base:  http://localhost:{PORT}/home  (after butterfly)")
-    print(f"  API state:  http://localhost:{PORT}/api/state")
-    print(f"  API weights: http://localhost:{PORT}/api/weights  (V1.5)")
+    print(f"  Stock app:  http://localhost:{PORT}/stock")
     print(f"  Data dir:   {_DATA}")
     print("  " + "-" * 54 + "\n")
 
-    cert = os.path.join(_DIR, "localhost+1.pem")
-    key = os.path.join(_DIR, "localhost+1-key.pem")
-    ssl_ctx = (cert, key) if os.path.exists(cert) and os.path.exists(key) else None
+    _migrate_pin_hashes()
+    if not _load_people().get("users"):
+        print(f"  First-admin setup token: {_setup_token()}\n")
 
-    app.run(host="0.0.0.0", port=PORT, debug=False, threaded=True, ssl_context=ssl_ctx)
+    venue_api.start_poller(_DATA)
+
+    from waitress import serve
+
+    print(f"  Serving on {BIND_HOST}:{PORT} (set OSB_BIND to change)\n")
+    serve(app, host=BIND_HOST, port=PORT, threads=8)

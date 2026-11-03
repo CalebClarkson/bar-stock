@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bar Stock</title>
+<style>
+:root{--bg:#f6f4ef;--card:#fff;--ink:#1e2522;--muted:#5f6a64;--line:#dcd8cf;--brand:#1f6b5c;--brand-ink:#fff;--warn:#a8540a;--bad:#b3261e;--soft:#e8f1ee}
+@media (prefers-color-scheme:dark){:root{--bg:#141917;--card:#1d2421;--ink:#e9eeeb;--muted:#a0aca6;--line:#323b37;--brand:#4fb39c;--brand-ink:#0d1412;--warn:#e9a55c;--bad:#f28b82;--soft:#24332e}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{background:var(--card);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:2}
+header h1{font-size:1.05rem;margin:0;flex:1}
+nav{display:flex;gap:4px;overflow-x:auto;padding:8px 16px;background:var(--card);border-bottom:1px solid var(--line)}
+nav button{white-space:nowrap;background:none;border:0;color:var(--muted);padding:8px 12px;border-radius:8px;font:inherit;cursor:pointer}
+nav button.on{background:var(--soft);color:var(--ink);font-weight:600}
+nav .badge{background:var(--warn);color:#fff;border-radius:9px;padding:0 6px;font-size:.75rem;margin-left:4px}
+main{max-width:1000px;margin:0 auto;padding:16px}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}
+h2{font-size:1.05rem;margin:0 0 8px}h3{font-size:.95rem;margin:14px 0 4px}
+.hint{color:var(--muted);font-size:.875rem;margin:4px 0 10px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin:8px 0}
+label{display:flex;flex-direction:column;font-size:.8rem;color:var(--muted);gap:2px;flex:1 1 140px;min-width:0}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:8px;width:100%;min-height:42px}
+button.act{font:inherit;background:var(--brand);color:var(--brand-ink);border:0;border-radius:7px;padding:9px 14px;min-height:42px;cursor:pointer}
+button.alt{font:inherit;background:none;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:8px 12px;min-height:38px;cursor:pointer}
+.seg{display:flex;gap:0;margin-bottom:10px}.seg button{flex:1;font:inherit;padding:10px;border:1px solid var(--line);background:none;color:var(--ink);cursor:pointer}
+.seg button.on{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:600}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{color:var(--muted);font-weight:600;font-size:.8rem}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr.cat td{background:var(--soft);font-weight:600}
+.low{color:var(--warn);font-weight:600}.neg{color:var(--bad);font-weight:600}
+#toast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;max-width:calc(100% - 32px);display:none;z-index:5}
+.login{max-width:360px;margin:8vh auto}
+.hidden{display:none!important}
+td input{min-height:36px;padding:5px;width:84px}
+</style>
+</head>
+<body>
+<div id="login" class="login hidden"><section>
+  <h2 id="loginTitle">Sign in</h2>
+  <div id="loginForm">
+    <label>Who are you?<select id="loginUser"></select></label>
+    <label style="margin-top:8px">6-digit PIN<input id="loginPin" type="password" inputmode="numeric" maxlength="6" autocomplete="off"></label>
+    <div class="row"><button class="act" id="loginGo">Sign in</button></div>
+  </div>
+  <div id="firstAdmin" class="hidden">
+    <p class="hint">No admin exists yet. The setup token is shown in the server window.</p>
+    <label>Your name<input id="faName"></label><label>6-digit PIN<input id="faPin" type="password" inputmode="numeric" maxlength="6"></label>
+    <label>Setup token<input id="faToken"></label>
+    <div class="row"><button class="act" id="faGo">Create admin</button></div>
+  </div>
+</section></div>
+
+<div id="app" class="hidden">
+  <header><h1>Bar Stock</h1><span id="who" class="hint" style="margin:0"></span><button class="alt" id="logout">Sign out</button></header>
+  <nav id="tabs"></nav>
+  <main id="view"></main>
+</div>
+<div id="toast" role="status"></div>
+<script src="/static/js/stock.js"></script>
+</body>
+</html>
