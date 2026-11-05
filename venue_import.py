@@ -25,6 +25,13 @@ ALIASES = {
     ("old mout cider", "mango & passionfuit"): ("Old Mout Cider", "Mango & Passionfruit"),
     ("asahi", "0"): ("Asahi", "0.0%"),
     ("guinness", "0"): ("Guinness", "0.0%"),
+    ("fever-tree", "premium ginger beer"): ("Fever-Tree", "Ginger Beer"),
+    # Syrups added from the cocktail specs, by their bottle names on later stocktakes.
+    ("le syrup de monin", "vanille de madagascar"): ("Vanilla Syrup", "Original"),
+    ("le syrup de monin", "watermelon"): ("Watermelon Syrup", "Original"),
+    ("1883 maison routin", "blueberry syrup"): ("Blueberry Syrup", "Original"),
+    ("1883 maison routin", "iced tea peach syrup"): ("Peach Tea Syrup", "Original"),
+    ("bristol syrup co", "simple sugar"): ("Gomme Syrup", "Original"),
 }
 
 
@@ -91,6 +98,104 @@ def import_baseline(conn, path: str, user: str = "import") -> dict[str, Any]:
                      label="Baseline stocktake", user=user)
     return {"rows": rowcount, "products": conn.execute("SELECT COUNT(*) FROM products").fetchone()[0],
             "bar_lines": len(counted["Bar"]), "cellar_lines": len(counted["Cellar"])}
+
+
+def _header(ws) -> dict[str, int] | None:
+    for row in ws.iter_rows(min_row=1, max_row=10, values_only=True):
+        head = [_clean(v) for v in row]
+        if "Item Name" in head and "Units Counted" in head:
+            return {h: i for i, h in enumerate(head)}
+    return None
+
+
+def read_stocktake(conn, raw: bytes, add_new: bool = False) -> dict[str, Any]:
+    """Read a stocktake laid out like the baseline sheet into Bar and Cellar figures.
+    A product merged into another counts towards the one it was merged into, and a product
+    never counted takes its bottle size from the sheet. Rows that match no product come back
+    for entering by hand, or are added as new products with add_new."""
+    import openpyxl
+
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(raw), data_only=True)
+    except Exception:
+        raise ValueError("This is not an Excel .xlsx file")
+    ws = next((w for w in wb.worksheets if _header(w)), None)
+    if ws is None:
+        raise ValueError("No sheet has Item Name and Units Counted columns")
+    col = _header(ws)
+    products = db.rows(conn, "SELECT id, name, variant, unit_ml, active FROM products")
+    exact = {(p["name"].lower(), p["variant"].lower(), p["unit_ml"]): p for p in products}
+    by_size: dict[tuple[str, float], list] = {}
+    by_variant: dict[tuple[str, str], list] = {}
+    for p in products:
+        if p["active"]:
+            by_size.setdefault((p["name"].lower(), p["unit_ml"]), []).append(p)
+            by_variant.setdefault((p["name"].lower(), p["variant"].lower()), []).append(p)
+    counted = {r["product_id"] for r in db.rows(conn, "SELECT DISTINCT product_id FROM count_lines")}
+    resized: list[str] = []
+
+    def match(name: str, variant: str, unit_ml: float, fmt: str) -> int | None:
+        p = exact.get((name.lower(), variant.lower(), unit_ml))
+        if p and p["active"]:
+            return p["id"]
+        named = by_variant.get((name.lower(), variant.lower()), [])
+        same = by_size.get((name.lower(), unit_ml), [])
+        plain = [q for q in same if not q["variant"]]
+        if p:
+            pick = named if len(named) == 1 else plain or same
+            return pick[0]["id"] if len(pick) == 1 else None
+        if len(plain) == 1:  # one product for every label, like the merged Rioja
+            return plain[0]["id"]
+        if len(named) == 1 and named[0]["id"] not in counted:
+            q = named[0]
+            conn.execute("UPDATE products SET unit_label = ?, unit_ml = ? WHERE id = ?", (fmt, unit_ml, q["id"]))
+            resized.append(f"{q['name']} {q['variant']}: now {fmt}".replace("  ", " "))
+            q["unit_ml"] = unit_ml
+            exact[(name.lower(), variant.lower(), unit_ml)] = q
+            return q["id"]
+        return None
+
+    lines: dict[str, dict[int, float]] = {loc: {} for loc in db.LOCATIONS}
+    unmatched, added, dates, blank, count = [], [], Counter(), 0, 0
+    for r in ws.iter_rows(min_row=2, values_only=True):
+        cell = lambda h: r[col[h]] if h in col and col[h] < len(r) else None
+        if not _clean(cell("Item Name")) or _clean(cell("Item Name")) == "Item Name":
+            continue
+        location = _clean(cell("Location")).title()
+        raw_name, raw_variant, fmt = _clean(cell("Item Name")), _clean(cell("Variant")), _clean(cell("Unit Size / Format"))
+        units = cell("Units Counted")
+        row = {"location": location, "name": raw_name, "variant": raw_variant, "unit": fmt, "units": units}
+        if units in (None, ""):
+            blank += 1
+            units = 0
+        try:
+            units = float(units)
+            unit_ml = parse_unit(fmt)[0]
+        except ValueError as e:
+            unmatched.append({**row, "why": str(e) if "unit" in str(e) else "Units Counted is not a number"})
+            continue
+        name, variant = _canon(raw_name, raw_variant)
+        pid = match(name, variant, unit_ml, fmt)
+        if pid is None and add_new and location in db.LOCATIONS:
+            cost = cell("Unit Cost (£)")
+            cur = conn.execute(
+                "INSERT INTO products (name, variant, category, subcategory, unit_label, unit_ml, measure, unit_cost, supplier) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (name, variant, _clean(cell("Category")), _clean(cell("Sub-Category")), fmt, unit_ml,
+                 parse_unit(fmt)[1], cost if isinstance(cost, (int, float)) else None, _clean(cell("Supplier"))))
+            pid = cur.lastrowid
+            exact[(name.lower(), variant.lower(), unit_ml)] = {"id": pid, "name": name, "variant": variant,
+                                                               "unit_ml": unit_ml, "active": 1}
+            added.append(f"{name} {variant} ({fmt})".replace("  ", " "))
+        if location not in db.LOCATIONS or pid is None:
+            unmatched.append({**row, "why": "Location must be Bar or Cellar" if pid else "No matching product"})
+            continue
+        lines[location][pid] = lines[location].get(pid, 0.0) + units
+        count += 1
+        if isinstance(cell("Date Counted"), datetime):
+            dates[cell("Date Counted").date().isoformat()] += 1
+    return {"lines": lines, "matched": count, "blank": blank, "unmatched": unmatched, "added": added, "resized": resized,
+            "date": dates.most_common(1)[0][0] if dates else "", "sheet": ws.title}
 
 
 # ── Square catalogue (selling prices) ───────────────────────────────────────

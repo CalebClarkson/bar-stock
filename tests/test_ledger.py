@@ -350,3 +350,55 @@ def test_staff_drinks_are_a_usage_reason(conn):
     db.log_usage(conn, pid, 50, "staff", user="T")
     t = db.usage_report(conn, "2000", "2100")["totals_ml"]
     assert t["staff"] == 50 and t["wastage"] == 0
+
+
+def _sheet(rows):
+    import io
+    import openpyxl
+    from datetime import datetime
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "03NOV26"
+    ws.append(["WET STOCK"])
+    ws.append([])
+    ws.append([])
+    ws.append(["Location", "Category", "Sub-Category", "Item Name", "Variant", "Unit Size / Format", "Units Counted",
+               "Unit Cost (£)", "Total Value (£)", "Par Level", "Reorder?", "Supplier", "Date Counted", "Notes"])
+    for loc, name, variant, fmt, units in rows:
+        ws.append([loc, "Spirits", "", name, variant, fmt, units, None, 0, None, None, "", datetime(2026, 11, 3)])
+    out = io.BytesIO()
+    wb.save(out)
+    return out.getvalue()
+
+
+def test_excel_count_matches_merged_and_lists_new(conn):
+    conn.execute("INSERT INTO products (id, name, variant, unit_label, unit_ml) VALUES (4, 'Rioja', '', '75cl bottle', 750)")
+    conn.execute("INSERT INTO products (id, name, variant, unit_label, unit_ml, active) VALUES (5, 'Rioja', 'Old', '75cl bottle', 750, 0)")
+    conn.execute("INSERT INTO products (id, name, variant, unit_label, unit_ml) VALUES (6, 'Gomme Syrup', 'Original', '70cl bottle', 700)")
+    raw = _sheet([("Bar", "Vodka", "", "70cl bottle", 1.5), ("Cellar", "Vodka", "", "70cl bottle", 6),
+                  ("Bar", "Rioja", "Old", "75cl bottle", 1), ("Bar", "Rioja", "New Label", "75cl bottle", 2),
+                  ("Bar", "Bristol Syrup Co", "Simple Sugar", "750mL bottle", 0.5),
+                  ("Bar", "Lillet", "Rose", "750mL bottle", None)])
+    r = venue_import.read_stocktake(conn, raw)
+    assert r["date"] == "2026-11-03" and r["sheet"] == "03NOV26"
+    assert r["lines"]["Bar"] == {1: 1.5, 4: 3, 6: 0.5} and r["lines"]["Cellar"] == {1: 6}
+    assert [u["name"] for u in r["unmatched"]] == ["Lillet"] and r["blank"] == 1
+    assert conn.execute("SELECT unit_ml FROM products WHERE id = 6").fetchone()[0] == 750
+    r = venue_import.read_stocktake(conn, raw, add_new=True)
+    assert not r["unmatched"] and r["added"] == ["Lillet Rose (750mL bottle)"]
+
+
+def test_excel_count_rejects_other_files(conn):
+    with pytest.raises(ValueError):
+        venue_import.read_stocktake(conn, b"Item,Qty\n")
+
+
+def test_finish_at_an_earlier_time_keeps_later_sales(conn):
+    db.ingest(conn, [{**ev("late", qty=4), "ts": "2026-11-04T20:00:00"}], "t")
+    db.save_draft(conn, "Bar", 1, 1)
+    db.save_draft(conn, "Cellar", 1, 5)
+    with pytest.raises(ValueError):
+        db.finish_stocktake(conn, ts="2026-10-01T12:00")
+    db.finish_stocktake(conn, ts="2026-11-03T23:59")
+    assert db.on_hand_ml(conn, 1) == 6 * 700 - 100

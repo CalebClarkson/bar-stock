@@ -205,6 +205,14 @@ def one_sided(conn) -> list[str]:
 def finish_stocktake(conn, ts: str = "", label: str = "", user: str = "") -> dict[str, int]:
     """Commit both locations at one moment. That moment becomes the new starting point for
     each counted product; a location left blank for a product keeps its last counted figure."""
+    if ts:
+        when = datetime.fromisoformat(ts)
+        if when > datetime.now():
+            raise ValueError("The count time is in the future")
+        ts = when.isoformat(timespec="seconds")
+        last = conn.execute("SELECT MAX(ts) FROM counts").fetchone()[0]
+        if last and ts <= last:
+            raise ValueError(f"The count time must be after the last stocktake ({last.replace('T', ' ')})")
     ts = ts or now()
     result = {}
     for loc in LOCATIONS:

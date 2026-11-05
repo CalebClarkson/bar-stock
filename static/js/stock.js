@@ -6,7 +6,7 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "
 const gbp = (v) => (v == null ? "–" : "£" + Number(v).toFixed(2));
 const LOCS = ["Bar", "Cellar"];
 const RANK = { staff: 1, manager: 2, admin: 3 };
-let me = null, data = null, tab = "stock", loc = "Bar";
+let me = null, data = null, tab = "stock", loc = "Bar", countAt = "", sheet = null, sheetFile = null;
 
 function toast(msg) {
   const t = $("toast");
@@ -107,7 +107,17 @@ const VIEWS = {
       <p class="hint">Enter units on the shelf, using tenths for open bottles (0.7). Each figure saves as you go, so two people can count Bar and Cellar at once. Stock only changes when you finish. Counted so far: ${done}.</p>
       <div class="scroll"><table><thead><tr><th>Product</th><th class="n">Last count</th><th class="n">Counted</th></tr></thead><tbody>
       ${grouped(data.stock, (l) => `<tr><td>${esc(l.label)}</td><td class="n">${l.counted[loc]}</td><td class="n"><input data-count="${l.product_id}" value="${mine[l.product_id] ?? ""}" inputmode="decimal" aria-label="Counted"></td></tr>`)}
-      </tbody></table></div><div class="row"><button class="act" id="saveCount">Finish stocktake</button></div></section>`;
+      </tbody></table></div>
+      <p class="hint">Counted at: leave blank for now. For an earlier count, set when it was done; sales and deliveries after that time come off the counted figures.</p>
+      <div class="row"><label>Counted at<input id="countAt" type="datetime-local" value="${esc(countAt)}"></label><button class="act" id="saveCount">Finish stocktake</button></div></section>
+      ${RANK[me.role] >= 2 ? `<section><h2>Import a count from Excel</h2><p class="hint">For a stocktake sheet laid out like the baseline. It fills in Bar and Cellar here, replacing anything typed so far; stock only changes when you press Finish stocktake.</p>
+      <div class="row"><label>Stocktake .xlsx<input id="countFile" type="file" accept=".xlsx"></label><button class="alt" id="countXls">Fill in the count</button></div>
+      ${sheet ? `<p>${sheet.matched} rows filled in from sheet ${esc(sheet.sheet)}${sheet.blank ? `, ${sheet.blank} blank counts read as 0` : ""}.</p>
+      ${sheet.added.length ? `<p>Added as new products: ${sheet.added.map(esc).join(", ")}.</p>` : ""}
+      ${sheet.resized.length ? `<p>Bottle size taken from the sheet: ${sheet.resized.map(esc).join(", ")}.</p>` : ""}
+      ${sheet.unmatched.length ? `<h3>Enter these by hand (${sheet.unmatched.length})</h3><div class="scroll"><table><thead><tr><th>Location</th><th>Item</th><th>Unit</th><th class="n">Units</th><th>Why</th></tr></thead><tbody>
+      ${sheet.unmatched.map((u) => `<tr><td>${esc(u.location)}</td><td>${esc(u.name)}${u.variant ? ` – ${esc(u.variant)}` : ""}</td><td>${esc(u.unit)}</td><td class="n">${esc(u.units)}</td><td>${esc(u.why)}</td></tr>`).join("")}</tbody></table></div>
+      ${sheet.unmatched.some((u) => u.why === "No matching product") ? `<p class="hint">Check none of these is a product you already have under another name; if so, type its count in above instead. Otherwise add them all as new products.</p><div class="row"><button class="alt" id="countNew">Add as new products</button></div>` : ""}` : ""}` : ""}</section>` : ""}`;
   },
   waste() {
     return `<section><h2>Log wastage, overpour, training or staff drinks</h2><p class="hint">For anything not rung through Square. Comps from Square come in with the sales import.</p>
@@ -214,6 +224,16 @@ async function render() {
   v.innerHTML = await VIEWS[tab]();
 }
 
+async function uploadCount(addNew) {
+  const fd = new FormData();
+  fd.append("file", sheetFile);
+  if (addNew) fd.append("add_new", "1");
+  sheet = await api("/api/venue/count/upload", { method: "POST", body: fd });
+  countAt = sheet.date ? `${sheet.date}T23:59` : "";
+  toast(`${sheet.matched} rows filled in, ${sheet.unmatched.length} to enter by hand`);
+  await render();
+}
+
 async function saveCost(input) {
   await api(`/api/venue/products/${input.dataset.cost}`, { method: "PATCH", json: { unit_cost: input.value } });
   toast("Cost saved");
@@ -223,9 +243,26 @@ const CLICK = {
   saveCount: async () => {
     const { one_sided: partial } = await api("/api/venue/count");
     const warn = partial.length ? `\n\nCounted in one place only (the other keeps its last figure):\n${partial.slice(0, 15).join("\n")}` : "";
-    if (!confirm(`Finish this stocktake and update stock?${warn}`)) return;
-    await api("/api/venue/count/finish", { json: {} });
+    const ts = $("countAt").value;
+    if (!confirm(`Finish this stocktake${ts ? ` as counted at ${ts.replace("T", " ")}` : ""} and update stock?${warn}`)) return;
+    await api("/api/venue/count/finish", { json: { ts } });
+    countAt = "";
+    sheet = null;
     toast("Stocktake saved");
+    await reload();
+  },
+  countXls: async () => {
+    const f = $("countFile").files[0];
+    if (!f) throw new Error("Choose a file first");
+    const { drafts } = await api("/api/venue/count");
+    if (drafts.length && !confirm("This replaces the figures already typed into the count. Carry on?")) return;
+    sheetFile = f;
+    await uploadCount(false);
+  },
+  countNew: async () => {
+    if (!sheetFile) throw new Error("Choose the file again");
+    if (!confirm("Add every unmatched row as a new product and fill in its count? This replaces the figures typed into the count.")) return;
+    await uploadCount(true);
     await reload();
   },
   wGo: async () => {

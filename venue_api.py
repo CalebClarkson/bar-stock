@@ -78,7 +78,23 @@ def count_draft(conn):
 @bp.post("/count/finish")
 @needs("staff")
 def count_finish(conn):
-    return jsonify(db.finish_stocktake(conn, label=_body().get("label", ""), user=_who()))
+    b = _body()
+    return jsonify(db.finish_stocktake(conn, ts=b.get("ts") or "", label=b.get("label", ""), user=_who()))
+
+
+@bp.post("/count/upload")
+@needs("manager")
+def count_upload(conn):
+    """Fill the count from an Excel stocktake. Stock changes only when the count is finished."""
+    upload = request.files.get("file")
+    if not upload:
+        raise ValueError("Choose an Excel stocktake file")
+    sheet = venue_import.read_stocktake(conn, upload.read(), add_new=request.form.get("add_new") == "1")
+    conn.execute("DELETE FROM count_drafts")
+    for loc, lines in sheet.pop("lines").items():
+        for pid, units in lines.items():
+            db.save_draft(conn, loc, pid, units, _who())
+    return jsonify(sheet)
 
 
 @bp.post("/usage")
