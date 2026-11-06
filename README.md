@@ -59,6 +59,12 @@ Square API sync is off until `SQUARE_ACCESS_TOKEN` and `SQUARE_LOCATION_ID` are 
 
 Stock data lives in `data/` and is never committed.
 
+## Disclaimer
+
+As you can probably tell by the structure, this project was heavily reliant on the development capabilities of Claude
+Code (Opus 5.5), although the process has taught me a lot, and proved to be a no-brainer fix to a real issue we were
+facing in my workplace. I encourage anybody who stumbles upon this repo to build on this, and see what you think!
+
 ## Credits and licence
 
 Based on [Open Source Barware](https://github.com/RichardBJamison/open-source-barware) by Richard B. Jamison. The first
