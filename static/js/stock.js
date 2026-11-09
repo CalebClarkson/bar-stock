@@ -879,7 +879,7 @@ const SETTINGS = {
         ? `<span class="acts"><button class="btn small" data-relink="${esc(x.item_key)}">Save</button> <button class="btn ghost small" data-recancel>Cancel</button></span>`
         : `<span class="acts"><button class="btn ghost small" data-reedit="${esc(x.item_key)}">Change</button> <button class="btn danger small" data-unlink="${esc(x.item_key)}">Unlink</button></span>` },
     ], m.mapped, { search: "Search Square items…", csv: true, empty: "Nothing linked yet." });
-    return `${waiting}<div class="card"><h2>Linked (${m.mapped.length})</h2><p class="hint">Changing a link affects sales from now on. Past sales keep what they took off stock.</p>${linked}</div>`;
+    return `${await ignoreCard()}${waiting}<div class="card"><h2>Linked (${m.mapped.length})</h2><p class="hint">Changing a link affects sales from now on. Past sales keep what they took off stock.</p>${linked}</div>`;
   },
 
   async products() {
@@ -1081,6 +1081,7 @@ async function uploadSales(file, saleDate = "") {
     const span = r.first_day ? (r.first_day === r.last_day ? day(r.first_day) : `${day(r.first_day)} to ${day(r.last_day)}`) : "";
     const parts = [`${span ? span + ": " : ""}${num(r.drinks, 0)} drinks${isMgr() ? `, ${gbp(r.takings)}` : ""}`];
     if (r.skipped) parts.push(`${r.skipped} lines were already uploaded and skipped`);
+    if (r.ignored) parts.push(`${r.ignored} food or other non-bar lines were left out`);
     if (r.unmapped) parts.push(`${r.unmapped} sales are waiting for their Square item to be linked`);
     if (!r.added && r.skipped) parts[0] = "This file was already uploaded, so nothing changed";
     lastResult = { html: esc(parts.join(". ")) + ".", warn: !!r.unmapped || !r.added };
@@ -1209,6 +1210,19 @@ const CLICK = {
     await api("/api/venue/branding", { json: { remove_logo: true } });
     await loadBranding();
     await render();
+  },
+  ignoreAdd: async () => {
+    const w = $("ignoreWord").value.trim();
+    if (w.length < 2) throw new Error("A code needs at least 2 characters");
+    const cur = ignoreDraft ?? (await get("/api/venue/ignore")).words;
+    if (!cur.some((x) => x.toLowerCase() === w.toLowerCase())) await setIgnoreDraft([...cur, w]);
+  },
+  ignoreCancel: async () => { ignoreDraft = null; ignorePreview = null; await render(); },
+  ignoreSave: async () => {
+    const r = await api("/api/venue/ignore", { json: { words: ignoreDraft } });
+    ignoreDraft = null; ignorePreview = null;
+    toast(`Saved. Removed ${r.sales} sales lines, ${r.prices} prices, ${r.links} links and ${r.products} products.`);
+    await reload();
   },
   clearCount: async () => {
     if (!confirm("Clear every figure in the open count? Stock does not change.")) return;
@@ -1361,6 +1375,31 @@ async function saveStyle(change) {
 
 let phone = { link: "", file: null, result: null };
 
+// Codes that mark food and other non-bar items, e.g. "WxD" or "DW".
+let ignoreDraft = null, ignorePreview = null;
+async function ignoreCard() {
+  const saved = await get("/api/venue/ignore");
+  const words = ignoreDraft ?? saved.words;
+  const changed = ignoreDraft && JSON.stringify(ignoreDraft) !== JSON.stringify(saved.words);
+  const pv = changed ? ignorePreview : saved.matches;
+  const list = (title, items) => items && items.length ? `<p class="hint" style="margin:8px 0 2px"><b>${title} (${items.length}):</b> ${items.slice(0, 40).map(esc).join(", ")}${items.length > 40 ? `, and ${items.length - 40} more` : ""}</p>` : "";
+  return `<div class="card"><h2>${icon("loss")} Leave out food and other non-bar items</h2>
+    <p class="hint">Square items with one of these codes in their name are left out completely: future sales uploads skip them, and they never appear in drinks sold, takings, GP or the waiting list. Codes match as their own word, so "DW" catches "DW Burger" or "DW-Fries" but not "Sandwich".</p>
+    <div class="tags">${words.map((w, i) => `<span class="tag">${esc(w)}<button data-rmword="${i}" aria-label="Remove ${esc(w)}">&times;</button></span>`).join("") || `<span class="hint" style="margin:0">No codes yet.</span>`}</div>
+    <div class="row"><label style="max-width:300px">Add a code<input id="ignoreWord" placeholder="e.g. WxD" maxlength="30" autocomplete="off"></label><button class="btn ghost" id="ignoreAdd">${icon("plus", 16)} Add</button></div>
+    ${changed ? `<div class="result-box" style="background:var(--warn-bg)"><b>Saving will remove:</b>
+      ${list("Square items, with their past sales and prices", pv?.square)}${list("Products, archived", pv?.products)}
+      ${!pv?.square?.length && !pv?.products?.length ? `<p class="hint" style="margin:6px 0 0">Nothing already in the app matches. Future uploads will skip matching items.</p>` : ""}
+      <div class="foot" style="border:0;padding-top:6px;margin-top:6px"><span class="sp"></span><button class="btn ghost" id="ignoreCancel">Cancel</button><button class="btn" id="ignoreSave">Save codes</button></div></div>`
+      : `${list("Left out now", pv?.square)}`}</div>`;
+}
+
+async function setIgnoreDraft(words) {
+  ignoreDraft = words;
+  ignorePreview = await api("/api/venue/ignore/preview", { json: { words } });
+  await render();
+}
+
 async function historyCard() {
   const { stocktakes } = await api("/api/venue/stocktakes");
   return `<div class="card"><h2>${icon("count")} Past stocktakes</h2>
@@ -1454,7 +1493,7 @@ document.addEventListener("click", guard(async (e) => {
   if (ds.period) { period = { kind: ds.period, from: period.from, to: period.to }; cache = {}; return render(); }
   if (ds.task) { task = ds.task; return render(); }
   if (ds.goset) { mode = "settings"; setTab = ds.goset; task = null; return reload(); }
-  if (ds.set) { setTab = ds.set; draft = null; prodDraft = null; editKey = null; cache = {}; return render(); }
+  if (ds.set) { setTab = ds.set; draft = null; prodDraft = null; editKey = null; ignoreDraft = null; ignorePreview = null; cache = {}; return render(); }
   if (ds.loc) { loc = ds.loc; return render(); }
   if (ds.wr) { waste.reason = ds.wr; return render(); }
   if (ds.wunit) { waste.unit = ds.wunit; waste.amount = ""; return render(); }
@@ -1538,6 +1577,11 @@ document.addEventListener("click", guard(async (e) => {
     await api(`/api/venue/prices/${t}`, { json: { product_id: p.id, ml: document.querySelector(`[data-pm="${t}"]`).value } });
     toast("Linked");
     return reload();
+  }
+  if (ds.rmword !== undefined) {
+    const cur = [...(ignoreDraft ?? (await get("/api/venue/ignore")).words)];
+    cur.splice(Number(ds.rmword), 1);
+    return setIgnoreDraft(cur);
   }
   if (ds.undocount) {
     if (!confirm(`Undo the stocktake finished ${when(ds.undocount)}? Stock goes back to the one before it plus everything since, and its figures go back into the open count to fix or clear.`)) return;
@@ -1654,6 +1698,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key !== "Enter") return;
   if (e.target.id === "loginPin") guard(CLICK.loginGo)();
   if (e.target.id === "sqAdd") guard(CLICK.sqAddGo)();
+  if (e.target.id === "ignoreWord") guard(CLICK.ignoreAdd)();
 });
 
 // Hover (or tap / tab to) a bar to see its figures.

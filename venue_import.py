@@ -250,6 +250,7 @@ def import_catalogue(conn, text: str) -> dict[str, int]:
     live = set()
     venue = rules()
     match = {k: tuple(v) for k, v in venue["catalogue_match"].items()}
+    skip = db.ignore_matcher(conn)
     extra, cats = set(venue["uncategorised_drinks"]), tuple(c.upper() for c in venue["bar_categories"])
     for r in csv.DictReader(io.StringIO(text.lstrip("\ufeff")), delimiter=_dialect_delimiter(text)):
         category = (r.get("Categories") or "").strip()
@@ -262,7 +263,7 @@ def import_catalogue(conn, text: str) -> dict[str, int]:
             price = float(r.get("Price") or "")
         except ValueError:
             continue
-        if r.get("Archived") == "Y" or not wanted:
+        if r.get("Archived") == "Y" or not wanted or skip(name) or skip(r.get("Variation Name") or ""):
             continue
         variation = (r.get("Variation Name") or "").strip()
         product_id, ml = None, None

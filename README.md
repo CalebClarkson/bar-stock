@@ -33,6 +33,8 @@ to make everything as customisable as possible within the UI so users can make a
   is safe. Full comps and 100% discounts are flagged for a reason: wastage, overpour, training or staff drinks.
 - **Mappings and recipes.** Each Square item points at a recipe, a product and serve size, or "no stock". Cocktails and
   pre-mix batches take their ingredients off stock, and costs flow through to GP after VAT.
+- **Leaving out food.** Codes such as "WxD" mark food or other non-bar items. Matching Square items are skipped on
+  upload and cleared from sales, prices, links and products, after a preview of exactly what will go.
 - **Deliveries.** Invoices go in as drafts and only change stock once approved.
 - **Changing prices.** Every change to what you pay (typed in, or from an approved delivery) and to what you charge
   (from a fresh Square catalogue upload) is logged with the old and new price. Each stock movement keeps the cost it

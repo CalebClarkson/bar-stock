@@ -243,6 +243,25 @@ def mapping_delete(conn):
     return jsonify({"status": "ok"})
 
 
+@bp.get("/ignore")
+@needs("manager")
+def ignore_get(conn):
+    words = db.ignore_words(conn)
+    return jsonify({"words": words, "matches": db.ignore_preview(conn, words)})
+
+
+@bp.post("/ignore/preview")
+@needs("admin")
+def ignore_preview(conn):
+    return jsonify(db.ignore_preview(conn, [str(w) for w in _body().get("words") or []]))
+
+
+@bp.post("/ignore")
+@needs("admin")
+def ignore_set(conn):
+    return jsonify(db.set_ignore_words(conn, [str(w) for w in _body().get("words") or []]))
+
+
 @bp.get("/recipes")
 @needs("staff")
 def recipes(conn):

@@ -519,3 +519,23 @@ def test_stocktake_history_shows_who_and_latest_can_be_undone_and_fixed(conn):
     with pytest.raises(ValueError):
         db.undo_stocktake(conn, "2026-10-23T23:59:00")  # an open count must be finished or cleared first
     assert db.clear_drafts(conn) == 2
+
+
+def test_ignored_codes_skip_food_on_import_and_clear_what_is_there(conn):
+    db.ingest(conn, [ev("a", item="dw burger"), {**ev("b"), "item_name": "DW Burger", "item_key": "dw burger"}], "t")
+    db.set_mapping(conn, "wxd-wings", "WxD-Wings", product_id=1, ml=25)  # linked to stock by mistake
+    db.ingest(conn, [{**ev("c"), "item_name": "WxD-Wings", "item_key": "wxd-wings"},
+                     {**ev("d"), "item_name": "Sandwich Gin", "item_key": "sandwich gin"}], "t")
+    conn.execute("INSERT INTO products (id, name, unit_label, unit_ml) VALUES (9, 'DW Buns', '1kg bag', 1000)")
+    assert db.on_hand_ml(conn, 1) == 8400 - 25
+    preview = db.ignore_preview(conn, ["wxd", "DW"])
+    assert preview["square"] == ["DW Burger", "WxD-Wings"] and preview["products"] == ["DW Buns (1kg bag)"]
+    r = db.set_ignore_words(conn, ["WxD", "dw", " DW "])
+    assert r["words"] == 2 and r["products"] == 1 and r["links"] == 1
+    assert db.on_hand_ml(conn, 1) == 8400  # the wrongly linked food sale gives its stock back
+    names = [e["item_name"] for e in db.rows(conn, "SELECT item_name FROM events")]
+    assert "Sandwich Gin" in names and not any("DW" in n or "WxD" in n for n in names)
+    r = db.ingest(conn, [{**ev("e"), "item_name": "DW Fries", "item_key": "dw fries"}], "t")
+    assert r["ignored"] == 1 and r["added"] == 0
+    with pytest.raises(ValueError):
+        db.set_ignore_words(conn, ["x"])

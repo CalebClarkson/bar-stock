@@ -108,6 +108,7 @@ def connect(data_dir: str) -> sqlite3.Connection:
     # Cost at the time of each movement, so a later price change does not rewrite past GP.
     _add_column(conn, "movements", "cost_per_ml", "REAL")
     _add_column(conn, "count_lines", "counted_by", "TEXT NOT NULL DEFAULT ''")
+    conn.execute("CREATE TABLE IF NOT EXISTS ignore_words (word TEXT PRIMARY KEY COLLATE NOCASE)")
     conn.execute("CREATE TABLE IF NOT EXISTS price_history (id INTEGER PRIMARY KEY, ts TEXT NOT NULL, "
                  "kind TEXT NOT NULL, ref TEXT NOT NULL, label TEXT NOT NULL, old REAL, new REAL, "
                  "source TEXT NOT NULL DEFAULT '', user TEXT NOT NULL DEFAULT '')")
@@ -351,8 +352,12 @@ def ingest(conn, events: list[dict[str, Any]], source: str, filename: str = "", 
     cur = conn.execute("INSERT INTO imports (ts, source, filename, user) VALUES (?, ?, ?, ?)",
                         (now(), source, filename, user))
     import_id = cur.lastrowid
-    added = skipped = unmapped = 0
+    added = skipped = unmapped = ignored = 0
+    skip = ignore_matcher(conn)
     for e in events:
+        if skip(e["item_name"]):
+            ignored += 1
+            continue
         c = conn.execute(
             "INSERT OR IGNORE INTO events (key, import_id, ts, kind, item_key, item_name, qty, net, modifiers, reason, "
             "category) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -372,7 +377,7 @@ def ingest(conn, events: list[dict[str, Any]], source: str, filename: str = "", 
                         "WHEN kind = 'refund' THEN -qty ELSE 0 END), 0) FROM events WHERE import_id = ?",
                         (import_id,)).fetchone()
     waiting = conn.execute("SELECT COUNT(DISTINCT item_key) FROM events WHERE status = 'unmapped'").fetchone()[0]
-    return {"import_id": import_id, "added": added, "skipped": skipped, "unmapped": unmapped,
+    return {"import_id": import_id, "added": added, "skipped": skipped, "unmapped": unmapped, "ignored": ignored,
             "first_day": span[0], "last_day": span[1], "takings": round(span[2], 2), "drinks": span[3],
             "items_waiting": waiting}
 
@@ -1012,4 +1017,76 @@ def undo_stocktake(conn, ts: str) -> dict[str, int]:
 
 def clear_drafts(conn) -> int:
     return conn.execute("DELETE FROM count_drafts").rowcount
+
+
+# ── Ignored items (food and anything else that is not bar stock) ─────────────
+# A venue's food items carry a code such as "WxD" or "DW". Any Square item, price or product whose
+# name holds one of these codes as a separate word is left out of the bar's stock and figures.
+
+def ignore_words(conn) -> list[str]:
+    return [r[0] for r in conn.execute("SELECT word FROM ignore_words ORDER BY word COLLATE NOCASE")]
+
+
+def ignore_matcher(conn, words: list[str] | None = None):
+    """True for a name holding one of the codes as its own word: "DW Burger" and "WxD-Wings" match,
+    "Sandwich" does not, so a short code cannot catch a drink by accident."""
+    words = ignore_words(conn) if words is None else words
+    if not words:
+        return lambda name: False
+    pattern = re.compile(r"(?<![A-Za-z0-9])(?:" + "|".join(re.escape(w) for w in words) + r")(?![A-Za-z0-9])", re.I)
+    return lambda name: bool(pattern.search(name or ""))
+
+
+def ignore_preview(conn, words: list[str]) -> dict[str, list[str]]:
+    hit = ignore_matcher(conn, words)
+    def names(sql):
+        seen = {}
+        for (n,) in conn.execute(sql):
+            if hit(n):
+                seen.setdefault(n.lower(), n)
+        return sorted(seen.values(), key=str.lower)
+    return {
+        "square": names("SELECT item_name FROM events UNION SELECT item_name FROM mappings "
+                        "UNION SELECT item || CASE WHEN variation NOT IN ('', 'Regular') THEN ' - ' || variation ELSE '' END "
+                        "FROM sell_prices"),
+        "products": [product_label(p) for p in rows(conn, "SELECT * FROM products WHERE active = 1")
+                     if hit(p["name"]) or hit(f"{p['name']} {p['variant']}")],
+    }
+
+
+def set_ignore_words(conn, words: list[str]) -> dict[str, int]:
+    """Save the codes and clear out everything already in that matches them. Sales of those items lose
+    their stock movements too, so a food item linked to stock by mistake gives its stock back."""
+    clean = []
+    for w in words:
+        w = re.sub(r"\s+", " ", str(w)).strip()
+        if not w:
+            continue
+        if len(w) < 2 or len(w) > 30:
+            raise ValueError("Each code needs 2 to 30 characters")
+        if w.lower() not in (c.lower() for c in clean):
+            clean.append(w)
+    conn.execute("DELETE FROM ignore_words")
+    conn.executemany("INSERT INTO ignore_words (word) VALUES (?)", [(w,) for w in clean])
+    hit = ignore_matcher(conn)
+    removed = {"sales": 0, "prices": 0, "links": 0, "products": 0}
+    for e in rows(conn, "SELECT id, item_name FROM events"):
+        if hit(e["item_name"]):
+            conn.execute("DELETE FROM movements WHERE event_id = ?", (e["id"],))
+            conn.execute("DELETE FROM events WHERE id = ?", (e["id"],))
+            removed["sales"] += 1
+    for m in rows(conn, "SELECT item_key, item_name FROM mappings"):
+        if hit(m["item_name"]):
+            conn.execute("DELETE FROM mappings WHERE item_key = ?", (m["item_key"],))
+            removed["links"] += 1
+    for p in rows(conn, "SELECT token, item, variation FROM sell_prices"):
+        if hit(p["item"]) or hit(p["variation"]):
+            conn.execute("DELETE FROM sell_prices WHERE token = ?", (p["token"],))
+            removed["prices"] += 1
+    for p in rows(conn, "SELECT id, name, variant FROM products WHERE active = 1"):
+        if hit(p["name"]) or hit(f"{p['name']} {p['variant']}"):
+            conn.execute("UPDATE products SET active = 0 WHERE id = ?", (p["id"],))
+            conn.execute("DELETE FROM count_drafts WHERE product_id = ?", (p["id"],))
+            removed["products"] += 1
+    return {"words": len(clean), **removed}
 
