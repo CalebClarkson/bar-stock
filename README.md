@@ -7,8 +7,9 @@ keeps all data on that PC, and replaces paid stock tools.
 ## Why I built this
 
 Paid stock software is expensive for a small bar and often doesn't track comps, staff drinks or batched cocktails
-properly. I adapted an open-source bar inventory app to how a small bar actually works: Square for sales, a bar and a
-cellar counted separately, end-of-night imports, and a shared PC where staff may not have admin rights.
+properly. I adapted an open-source bar inventory app suited to my own setup (Square for sales, bar and a
+cellar counted separately, no admin rights on the office PC) but it can be easily adapted for different setups. I tried
+to make everything as customisable as possible within the UI so users can make any changes they want for it to suit them.
 
 ## What it does
 
