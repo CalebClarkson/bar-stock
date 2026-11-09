@@ -107,6 +107,7 @@ def connect(data_dir: str) -> sqlite3.Connection:
     _add_column(conn, "events", "category", "TEXT NOT NULL DEFAULT ''")
     # Cost at the time of each movement, so a later price change does not rewrite past GP.
     _add_column(conn, "movements", "cost_per_ml", "REAL")
+    _add_column(conn, "count_lines", "counted_by", "TEXT NOT NULL DEFAULT ''")
     conn.execute("CREATE TABLE IF NOT EXISTS price_history (id INTEGER PRIMARY KEY, ts TEXT NOT NULL, "
                  "kind TEXT NOT NULL, ref TEXT NOT NULL, label TEXT NOT NULL, old REAL, new REAL, "
                  "source TEXT NOT NULL DEFAULT '', user TEXT NOT NULL DEFAULT '')")
@@ -179,7 +180,8 @@ def stock_lines(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     return out
 
 
-def add_count(conn, location: str, lines: dict[int, float], ts: str = "", label: str = "", user: str = "") -> int:
+def add_count(conn, location: str, lines: dict[int, float], ts: str = "", label: str = "", user: str = "",
+              counted_by: dict[int, str] | None = None) -> int:
     if location not in LOCATIONS:
         raise ValueError("Unknown location")
     cur = conn.execute(
@@ -187,8 +189,8 @@ def add_count(conn, location: str, lines: dict[int, float], ts: str = "", label:
     )
     cid = cur.lastrowid
     conn.executemany(
-        "INSERT INTO count_lines (count_id, product_id, units) VALUES (?, ?, ?)",
-        [(cid, pid, float(u)) for pid, u in lines.items()],
+        "INSERT INTO count_lines (count_id, product_id, units, counted_by) VALUES (?, ?, ?, ?)",
+        [(cid, pid, float(u), (counted_by or {}).get(pid, "")) for pid, u in lines.items()],
     )
     return cid
 
@@ -235,8 +237,10 @@ def finish_stocktake(conn, ts: str = "", label: str = "", user: str = "") -> dic
     for loc in LOCATIONS:
         lines = {r["product_id"]: r["units"] for r in rows(
             conn, "SELECT product_id, units FROM count_drafts WHERE location = ?", loc)}
+        who = {r["product_id"]: r["user"] for r in rows(
+            conn, "SELECT product_id, user FROM count_drafts WHERE location = ?", loc)}
         if lines:
-            add_count(conn, loc, lines, ts=ts, label=label, user=user)
+            add_count(conn, loc, lines, ts=ts, label=label, user=user, counted_by=who)
         result[loc] = len(lines)
     if not any(result.values()):
         raise ValueError("Nothing counted yet")
@@ -968,4 +972,44 @@ def phone_count(conn, data: dict[str, Any], add_new: bool = False, user: str = "
         filled[loc] += 1
         added.append(f"{name} ({size})")
     return {"filled": filled, "skipped": skipped, "new": new, "added": added, "by": who}
+
+
+# ── Stocktake history and undo ───────────────────────────────────────────────
+
+def stocktakes(conn, limit: int = 30) -> list[dict[str, Any]]:
+    """Each finished stocktake: when, who pressed Finish, who counted, and how many items per place."""
+    out = []
+    for r in rows(conn, "SELECT ts, MAX(user) finished_by, MAX(label) label FROM counts GROUP BY ts ORDER BY ts DESC LIMIT ?",
+                  limit):
+        lines = rows(conn, "SELECT c.location, COUNT(*) n FROM count_lines l JOIN counts c ON c.id = l.count_id "
+                           "WHERE c.ts = ? GROUP BY c.location", r["ts"])
+        counters = [x["counted_by"] for x in rows(
+            conn, "SELECT l.counted_by, COUNT(*) n FROM count_lines l JOIN counts c ON c.id = l.count_id "
+                  "WHERE c.ts = ? AND l.counted_by <> '' GROUP BY l.counted_by ORDER BY n DESC", r["ts"])]
+        out.append({**r, "counted_by": counters, **{loc: 0 for loc in LOCATIONS},
+                    **{x["location"]: x["n"] for x in lines}})
+    return out
+
+
+def undo_stocktake(conn, ts: str) -> dict[str, int]:
+    """Take the latest stocktake back out. Stock returns to the stocktake before it plus every sale,
+    delivery and wastage since, and the counted figures go back into the open count, so one wrong
+    number can be fixed and the stocktake finished again (or the open count cleared)."""
+    latest = conn.execute("SELECT MAX(ts) FROM counts").fetchone()[0]
+    if not latest or ts != latest:
+        raise ValueError("Only the most recent stocktake can be undone")
+    if conn.execute("SELECT 1 FROM count_drafts LIMIT 1").fetchone():
+        raise ValueError("There is already an open count. Finish or clear it first")
+    reopened = {loc: 0 for loc in LOCATIONS}
+    for c in rows(conn, "SELECT * FROM counts WHERE ts = ?", ts):
+        for l in rows(conn, "SELECT * FROM count_lines WHERE count_id = ?", c["id"]):
+            save_draft(conn, c["location"], l["product_id"], l["units"], l["counted_by"] or c["user"])
+            reopened[c["location"]] += 1
+        conn.execute("DELETE FROM count_lines WHERE count_id = ?", (c["id"],))
+        conn.execute("DELETE FROM counts WHERE id = ?", (c["id"],))
+    return reopened
+
+
+def clear_drafts(conn) -> int:
+    return conn.execute("DELETE FROM count_drafts").rowcount
 

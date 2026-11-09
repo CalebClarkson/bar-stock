@@ -645,7 +645,7 @@ const TASKS = {
       <div class="seg">${LOCS.map((l) => `<button data-loc="${l}" class="${l === loc ? "on" : ""}">${l}</button>`).join("")}</div>
       <div class="tools"><input id="countFilter" placeholder="Find a product…" aria-label="Find"></div>
       <div class="scroll"><table><thead><tr><th>Product</th><th class="n">Last count</th><th class="n">Now</th></tr></thead><tbody id="countBody">${rowsHtml}</tbody></table></div>
-      <div class="foot"><label style="max-width:260px">Counted at (leave blank for now)<input id="countAt" type="datetime-local" value="${esc(countAt)}"></label><span class="sp"></span><button class="btn" id="saveCount">Finish stocktake</button></div></div>${excel}`;
+      <div class="foot"><label style="max-width:260px">Counted at (leave blank for now)<input id="countAt" type="datetime-local" value="${esc(countAt)}"></label><span class="sp"></span>${drafts.length ? `<button class="btn ghost" id="clearCount">Clear the open count</button>` : ""}<button class="btn" id="saveCount">Finish stocktake</button></div></div>${await historyCard()}${excel}`;
   },
   async waste() {
     const reasons = [["wastage", "Wastage"], ["overpour", "Overpour"], ["training", "Training"], ["staff", "Staff drink"],
@@ -1210,6 +1210,13 @@ const CLICK = {
     await loadBranding();
     await render();
   },
+  clearCount: async () => {
+    if (!confirm("Clear every figure in the open count? Stock does not change.")) return;
+    await api("/api/venue/count/clear", { method: "POST" });
+    sheet = null; phone.result = null;
+    toast("Open count cleared");
+    await render();
+  },
   phoneLink: async () => {
     phone.link = await phoneLinkFor();
     try { await navigator.clipboard.writeText(phone.link); toast("Link copied. Paste it into an email or message to your phone."); }
@@ -1353,6 +1360,19 @@ async function saveStyle(change) {
 // after "#", which browsers never send to a website; counts come back as a file someone emails here.
 
 let phone = { link: "", file: null, result: null };
+
+async function historyCard() {
+  const { stocktakes } = await api("/api/venue/stocktakes");
+  return `<div class="card"><h2>${icon("count")} Past stocktakes</h2>
+    <p class="hint">Who finished each stocktake and who counted. ${isAdmin() ? "Undo takes the latest one back out: stock returns to the stocktake before it plus everything sold or delivered since, and its figures go back into the count above so you can fix a number and finish again, or clear them." : "An admin can undo the latest one if it went wrong."}</p>
+    ${tbl("stocktakes", [
+      { k: "ts", label: "Finished", f: (r) => esc(when(r.ts)) },
+      { k: "finished_by", label: "Finished by", f: (r) => esc(r.finished_by || "-") },
+      { k: "counted_by", label: "Counted by", v: (r) => r.counted_by.join(", "), f: (r) => esc(r.counted_by.join(", ") || r.finished_by || "-") },
+      { k: "Bar", label: "Bar items", n: true }, { k: "Cellar", label: "Cellar items", n: true },
+      { k: "act", label: "", nosort: true, f: (r) => (isAdmin() && r === stocktakes[0] ? `<button class="btn danger small" data-undocount="${esc(r.ts)}">Undo</button>` : "") },
+    ], stocktakes, { limit: 10, empty: "No stocktakes yet." })}</div>`;
+}
 
 async function phoneLinkFor() {
   const products = base.stock.map((l) => [l.product_id, l.label.replace(/ \([^)]*\)$/, ""), l.category || "Other", l.unit_label]);
@@ -1517,6 +1537,12 @@ document.addEventListener("click", guard(async (e) => {
     if (!p) throw new Error("Pick a product from the list");
     await api(`/api/venue/prices/${t}`, { json: { product_id: p.id, ml: document.querySelector(`[data-pm="${t}"]`).value } });
     toast("Linked");
+    return reload();
+  }
+  if (ds.undocount) {
+    if (!confirm(`Undo the stocktake finished ${when(ds.undocount)}? Stock goes back to the one before it plus everything since, and its figures go back into the open count to fix or clear.`)) return;
+    const r = await api("/api/venue/stocktakes/undo", { json: { ts: ds.undocount } });
+    toast(`Stocktake undone. ${r.reopened.Bar + r.reopened.Cellar} figures are back in the count to fix or clear.`);
     return reload();
   }
   if (ds.undo) {

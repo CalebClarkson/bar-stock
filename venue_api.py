@@ -119,6 +119,24 @@ def count_upload(conn):
     return jsonify(sheet)
 
 
+@bp.get("/stocktakes")
+@needs("staff")
+def stocktakes(conn):
+    return jsonify({"stocktakes": db.stocktakes(conn)})
+
+
+@bp.post("/stocktakes/undo")
+@needs("admin")
+def stocktake_undo(conn):
+    return jsonify({"reopened": db.undo_stocktake(conn, str(_body().get("ts") or ""))})
+
+
+@bp.post("/count/clear")
+@needs("job:count")
+def count_clear(conn):
+    return jsonify({"cleared": db.clear_drafts(conn)})
+
+
 @bp.post("/count/phone")
 @needs("job:count")
 def count_phone(conn):

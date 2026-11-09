@@ -27,7 +27,8 @@ to make everything as customisable as possible within the UI so users can make a
 - **One stock figure per product.** Bar and Cellar are counted separately at a stocktake, but sales, wastage, batches
   and deliveries all come off one overall figure.
 - **Append-only ledger.** Stock on hand is the last stocktake plus every movement since, so nothing is overwritten and
-  any import can be undone.
+  any import can be undone. Past stocktakes show who finished and who counted, and an admin can undo the latest one
+  (its figures go back into the open count to fix).
 - **Square sales import.** Reads Square's item sales detail export (UTF-16, tab-separated). Re-importing the same day
   is safe. Full comps and 100% discounts are flagged for a reason: wastage, overpour, training or staff drinks.
 - **Mappings and recipes.** Each Square item points at a recipe, a product and serve size, or "no stock". Cocktails and

@@ -499,3 +499,23 @@ def test_phone_count_fills_only_what_was_counted_and_lists_new_items(conn):
         db.phone_count(conn, {"kind": "something else"})
     with pytest.raises(ValueError):
         db.phone_count(conn, {**data, "counts": {"Bar": [[1, -5]]}})
+
+
+def test_stocktake_history_shows_who_and_latest_can_be_undone_and_fixed(conn):
+    db.ingest(conn, [ev("a", qty=4)], "t")  # 100ml sold after the first stocktake
+    db.save_draft(conn, "Bar", 1, 1, "Sam (phone)")
+    db.save_draft(conn, "Cellar", 1, 5, "Jo")
+    db.finish_stocktake(conn, user="Boss")
+    assert db.on_hand_ml(conn, 1) == 4200
+    last = db.stocktakes(conn)[0]
+    assert last["finished_by"] == "Boss" and set(last["counted_by"]) == {"Sam (phone)", "Jo"}
+    assert (last["Bar"], last["Cellar"]) == (1, 1)
+    with pytest.raises(ValueError):
+        db.undo_stocktake(conn, "2026-10-23T23:59:00")  # not the latest
+    assert db.undo_stocktake(conn, last["ts"]) == {"Bar": 1, "Cellar": 1}
+    assert db.on_hand_ml(conn, 1) == 8400 - 100  # back to the first stocktake less the sale
+    drafts = {(d["location"], d["user"]): d["units"] for d in db.rows(conn, "SELECT * FROM count_drafts")}
+    assert drafts == {("Bar", "Sam (phone)"): 1, ("Cellar", "Jo"): 5}
+    with pytest.raises(ValueError):
+        db.undo_stocktake(conn, "2026-10-23T23:59:00")  # an open count must be finished or cleared first
+    assert db.clear_drafts(conn) == 2
