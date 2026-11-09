@@ -4,7 +4,7 @@ PORT=5052
 VENV_PY="$INSTALL_DIR/.venv/bin/python3"
 
 clear
-echo "  Open Source Barware — Start"
+echo "  Open Source Barware - Start"
 if [ ! -f "$INSTALL_DIR/server.py" ]; then
   echo "  Run Install.command first."
   read -p "  Press Enter..."; exit 1

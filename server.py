@@ -1,8 +1,8 @@
 """
-Open Source Barware — Chrome Program Server
+Open Source Barware - Chrome Program Server
 Local Flask app (OVLP POP delivery model).
 
-Caterpillar: welcome → name_bar → voice_walk → reconcile → build_bar → map_review → first_count
+Caterpillar: welcome > name_bar > voice_walk > reconcile > build_bar > map_review > first_count
 Butterfly:   home base admin panel (metrics, spreadsheets, in-house inventory)
 """
 
@@ -16,6 +16,8 @@ import math
 import os
 import re
 import secrets
+import threading
+import time
 import urllib.error
 
 import uuid
@@ -25,10 +27,23 @@ from functools import wraps
 from typing import Any
 
 from flask import Flask, Response, jsonify, redirect, request, send_from_directory, session
+from werkzeug.security import check_password_hash, generate_password_hash
 
-VERSION = "1.5.0-v1.5-public-2026-07-10"  # V1.5 public release — Spanish-ready notes + full toolkit
+_ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "venue.env")
+if os.path.isfile(_ENV_FILE):
+    with open(_ENV_FILE, encoding="utf-8") as _fh:
+        for _line in _fh:
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _v = _line.split("=", 1)
+                os.environ.setdefault(_k.strip(), _v.strip())
+
+VERSION = "1.5.0-v1.5-public-2026-07-10"  # V1.5 public release - Spanish-ready notes + full toolkit
 PORT = int(os.environ.get("PORT", "5052"))
-DEMO_MODE = os.environ.get("OSB_DEMO_MODE", "1") != "0"
+# Loopback by default; set OSB_BIND=0.0.0.0 (or a Tailscale/LAN IP) to serve other devices.
+BIND_HOST = os.environ.get("OSB_BIND", "127.0.0.1")
+# Set OSB_HTTPS=1 when served over HTTPS (e.g. tailscale serve) so cookies are Secure-only.
+HTTPS_ONLY = os.environ.get("OSB_HTTPS", "0") == "1"
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 _STATIC = os.path.join(_DIR, "static")
@@ -53,6 +68,8 @@ _SECRETS_FILE = os.path.join(_DATA, "ai_secrets.json")
 _PEOPLE_FILE = os.path.join(_DATA, "people.json")
 _STAFF_BOARD_FILE = os.path.join(_DATA, "staff_board.json")
 _SESSION_SECRET_FILE = os.path.join(_DATA, "session_secret.txt")
+_THROTTLE_FILE = os.path.join(_DATA, "login_throttle.json")
+_SETUP_TOKEN_FILE = os.path.join(_DATA, "setup_token.txt")
 
 from invoice_parse import parse_invoice  # noqa: E402
 
@@ -156,15 +173,21 @@ def _ensure_session_secret() -> str:
     key = secrets.token_hex(32)
     with open(_SESSION_SECRET_FILE, "w", encoding="utf-8") as fh:
         fh.write(key)
+    try:
+        os.chmod(_SESSION_SECRET_FILE, 0o600)
+    except OSError:
+        pass
     return key
 
 
 app.secret_key = _ensure_session_secret()
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=14)
+app.config["SESSION_COOKIE_SAMESITE"] = "Strict"
+app.config["SESSION_COOKIE_SECURE"] = HTTPS_ONLY
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=16)
+app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
 
-# V1.5 team access — default manager permissions (admin overrides per person)
+# V1.5 team access - default manager permissions (admin overrides per person)
 DEFAULT_MANAGER_PERMISSIONS: dict[str, bool] = {
     "dashboard": True,
     "count": True,
@@ -289,17 +312,91 @@ def _valid_pin(pin: str) -> bool:
     return bool(re.fullmatch(r"\d{6}", (pin or "").strip()))
 
 
-def _hash_pin(pin: str, salt: str | None = None) -> tuple[str, str]:
-    salt = salt or secrets.token_hex(16)
-    digest = hashlib.sha256(f"{salt}:{pin.strip()}".encode("utf-8")).hexdigest()
-    return digest, salt
+def _legacy_digest(pin: str, salt: str) -> str:
+    return hashlib.sha256(f"{salt}:{pin.strip()}".encode("utf-8")).hexdigest()
 
 
-def _check_pin(pin: str, pin_hash: str, salt: str) -> bool:
-    if not pin_hash or not salt:
+def _hash_pin(pin: str) -> str:
+    return generate_password_hash(pin.strip(), method="scrypt")
+
+
+def _check_pin(pin: str, user: dict[str, Any]) -> bool:
+    """Verify a PIN. Handles scrypt, wrapped legacy, and unmigrated legacy hashes."""
+    stored = user.get("pin_hash") or ""
+    salt = user.get("pin_salt") or ""
+    if not stored:
         return False
-    digest, _ = _hash_pin(pin, salt)
-    return secrets.compare_digest(digest, pin_hash)
+    if stored.startswith("wrapped:"):
+        return check_password_hash(stored[len("wrapped:"):], _legacy_digest(pin, salt))
+    if salt:
+        return secrets.compare_digest(_legacy_digest(pin, salt), stored)
+    return check_password_hash(stored, pin.strip())
+
+
+def _migrate_pin_hashes() -> int:
+    """Wrap old salted SHA-256 hashes in scrypt so no fast hash stays on disk."""
+    people = _read_json(_PEOPLE_FILE, None)
+    if not isinstance(people, dict):
+        return 0
+    changed = 0
+    for u in people.get("users") or []:
+        stored = u.get("pin_hash") or ""
+        if stored and u.get("pin_salt") and not stored.startswith("wrapped:"):
+            u["pin_hash"] = "wrapped:" + generate_password_hash(stored, method="scrypt")
+            changed += 1
+    if changed:
+        _save_people(people)
+    return changed
+
+
+_MAX_USER_FAILS = 5
+_MAX_IP_FAILS = 20
+_LOCK_SECONDS = 15 * 60
+_throttle_lock = threading.Lock()
+
+
+def _throttle_keys(user_id: str) -> list[tuple[str, int]]:
+    return [(f"user:{user_id}", _MAX_USER_FAILS), (f"ip:{request.remote_addr}", _MAX_IP_FAILS)]
+
+
+def _login_locked(user_id: str) -> int:
+    """Seconds left on a lockout, or 0. Survives restarts."""
+    now = time.time()
+    with _throttle_lock:
+        data = _read_json(_THROTTLE_FILE, {})
+    left = 0
+    for key, limit in _throttle_keys(user_id):
+        row = data.get(key) or {}
+        if row.get("fails", 0) >= limit and row.get("until", 0) > now:
+            left = max(left, int(row["until"] - now) + 1)
+    return left
+
+
+def _record_login(user_id: str, ok: bool) -> None:
+    now = time.time()
+    with _throttle_lock:
+        data = _read_json(_THROTTLE_FILE, {})
+        for key, _limit in _throttle_keys(user_id):
+            row = data.get(key) or {}
+            if ok:
+                data.pop(key, None)
+                continue
+            fails = 1 if row.get("until", 0) <= now else row.get("fails", 0) + 1
+            data[key] = {"fails": fails, "until": now + _LOCK_SECONDS}
+        _write_json(_THROTTLE_FILE, data)
+
+
+def _setup_token() -> str:
+    """One-time token needed to create the first admin from a browser."""
+    token = ""
+    if os.path.isfile(_SETUP_TOKEN_FILE):
+        with open(_SETUP_TOKEN_FILE, encoding="utf-8") as fh:
+            token = fh.read().strip()
+    if not token:
+        token = secrets.token_urlsafe(16)
+        with open(_SETUP_TOKEN_FILE, "w", encoding="utf-8") as fh:
+            fh.write(token)
+    return token
 
 
 def _user_public(u: dict[str, Any]) -> dict[str, Any]:
@@ -319,7 +416,19 @@ def _user_public(u: dict[str, Any]) -> dict[str, Any]:
         "created_at": u.get("created_at"),
         "updated_at": u.get("updated_at"),
         "has_pin": bool(u.get("pin_hash")),
+        "stock_jobs": _stock_jobs(u),
     }
+
+
+STOCK_JOBS = ("count", "waste", "batch")
+
+
+def _stock_jobs(u: dict[str, Any]) -> dict[str, bool]:
+    """Everyday stock jobs an admin can allow for someone who is not an admin."""
+    if u.get("role") == "admin":
+        return {j: True for j in STOCK_JOBS}
+    have = u.get("stock_jobs") or {}
+    return {j: bool(have.get(j)) for j in STOCK_JOBS}
 
 
 def _find_user(people: dict[str, Any], user_id: str | None = None, login: str | None = None):
@@ -346,20 +455,11 @@ def _session_user() -> dict[str, Any] | None:
 def _auth_status() -> dict[str, Any]:
     people = _load_people()
     users = [u for u in people.get("users") or [] if u.get("active", True)]
-    enabled = bool(users)
-    current = _session_user() if enabled else {
-        "id": "open-admin",
-        "name": "Admin",
-        "login": "admin",
-        "role": "admin",
-        "venue_id": None,
-        "active": True,
-        "permissions": dict(ADMIN_PERMISSIONS),
-        "open_mode": True,
-    }
+    current = _session_user() if users else None
     return {
-        "auth_enabled": enabled,
-        "logged_in": bool(current) if enabled else True,
+        "auth_enabled": True,
+        "needs_first_admin": not users,
+        "logged_in": bool(current),
         "user": current,
         "users_public": [
             {"id": u.get("id"), "name": u.get("name"), "login": u.get("login"), "role": u.get("role")}
@@ -368,13 +468,57 @@ def _auth_status() -> dict[str, Any]:
     }
 
 
+ROLE_RANK = {"staff": 1, "manager": 2, "admin": 3}
+
+
+def _has_role(minimum: str) -> bool:
+    user = _session_user()
+    return bool(user) and ROLE_RANK.get(user.get("role"), 0) >= ROLE_RANK[minimum]
+
+
 def _require_admin():
-    st = _auth_status()
-    if not st["auth_enabled"]:
-        return None  # open mode = admin
-    user = st.get("user")
-    if not user or user.get("role") != "admin":
+    if not _has_role("admin"):
         return jsonify({"error": "Admin only"}), 403
+    return None
+
+
+# Reachable without a session. /api/people POST is only open while no users exist
+# (see _guard_request); everything else under /api and every page is behind login.
+_PUBLIC_PATHS = {"/ping", "/stock", "/favicon.ico", "/api/auth/status", "/api/auth/login", "/api/auth/logout"}
+# Readable before sign-in so the login screen can show the venue's logo; changing them needs a manager.
+_PUBLIC_GETS = {"/api/venue/branding", "/api/venue/branding/logo"}
+_LEGACY_PAGES = ("/setup", "/home", "/help/", "/downloads/")
+
+
+@app.before_request
+def _guard_request():
+    path = request.path
+    if request.method not in ("GET", "HEAD", "OPTIONS"):
+        origin = request.headers.get("Origin")
+        if origin and origin.split("://", 1)[-1] != request.host:
+            return jsonify({"error": "Cross-origin request refused"}), 403
+        if request.headers.get("Sec-Fetch-Site") in ("cross-site", "same-site"):
+            return jsonify({"error": "Cross-origin request refused"}), 403
+    if path in _PUBLIC_PATHS or path.startswith("/static/") or (path in _PUBLIC_GETS and request.method in ("GET", "HEAD")):
+        return None
+    if path == "/":
+        return redirect("/stock")
+    if path == "/api/people" and request.method == "POST" and not _load_people().get("users"):
+        body = request.get_json(silent=True) or {}
+        if secrets.compare_digest(str(body.get("setup_token") or ""), _setup_token()):
+            return None
+        return jsonify({"error": "Setup token required"}), 403
+    if not _session_user():
+        if path.startswith("/api/"):
+            return jsonify({"error": "Login required"}), 401
+        return redirect("/stock")
+    if path.startswith("/api/venue/"):
+        return None  # role checks live on each venue route
+    # The original screens and their API are admin-only; day-to-day use goes through /stock.
+    if not _has_role("admin"):
+        if path.startswith("/api/"):
+            return jsonify({"error": "Admin only"}), 403
+        return redirect("/stock")
     return None
 
 
@@ -959,7 +1103,7 @@ def _can_advance(cfg: dict[str, Any], target: str) -> tuple[bool, str]:
     checks = {
         "name_bar": (current == "welcome", "Complete welcome first."),
         "voice_walk": (current == "name_bar", "Continue from the previous step first."),
-        "reconcile": (has_walk, "Walk the bar — paste voice notes or add bottles."),
+        "reconcile": (has_walk, "Walk the bar - paste voice notes or add bottles."),
         "build_bar": (
             bool(setup.get("draft_map")),
             "Run reconciliation before reviewing your bar layout.",
@@ -1041,7 +1185,7 @@ def _metrics_for_window(cfg: dict[str, Any], window: str, custom_from: str = "",
         "betterments": [],
         "sales_trend": "flat",
         "notes": (
-            f"Baseline locked — {stats['bottles']} bottles across {stats['stations']} stations."
+            f"Baseline locked - {stats['bottles']} bottles across {stats['stations']} stations."
             if has_data
             else "Complete your first count to populate metrics."
         ),
@@ -1108,7 +1252,7 @@ def _snapshot_level_map(cycle: dict[str, Any]) -> dict[str, float]:
 
 
 def _analytics_payload(cfg: dict[str, Any], bar: dict[str, Any]) -> dict[str, Any]:
-    """Program Health analytics — mirrors Dojo /inventory/analytics."""
+    """Program Health analytics - mirrors Dojo /inventory/analytics."""
     state = _load_state()
     bar_id = bar.get("id", "")
     cycles = [c for c in state.get("cycles", []) if c.get("bar_id") == bar_id]
@@ -1426,16 +1570,16 @@ def _analytics_payload(cfg: dict[str, Any], bar: dict[str, Any]) -> dict[str, An
 
 
 @app.after_request
-def _cors(resp):
-    resp.headers["Access-Control-Allow-Origin"] = "*"
-    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
-    resp.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+def _security_headers(resp):
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["Referrer-Policy"] = "same-origin"
     return resp
 
 
 @app.route("/ping")
 def ping():
-    return jsonify({"status": "ok", "app": "osb-program", "version": VERSION, "port": PORT})
+    return jsonify({"status": "ok"})
 
 
 @app.route("/")
@@ -1486,7 +1630,7 @@ def api_state():
     phase = cfg.get("phase", "welcome")
     active_id = cfg.get("active_bar_id", "")
     raw_setup_id = cfg.get("setup_bar_id") or ""
-    # Butterfly: never substitute active_bar_id — initHome treats any setup_bar_id as "still in setup"
+    # Butterfly: never substitute active_bar_id - initHome treats any setup_bar_id as "still in setup"
     setup_id = raw_setup_id if phase == "butterfly" else (raw_setup_id or active_id)
 
     auth = _auth_status()
@@ -1570,7 +1714,7 @@ def api_config():
         branding = {**current, **patch["branding"]}
         logo = branding.get("logo_data_url") or ""
         if logo and len(logo) > 180_000:
-            return jsonify({"error": "Logo image too large — use a smaller file (under ~120KB)."}), 400
+            return jsonify({"error": "Logo image too large - use a smaller file (under ~120KB)."}), 400
         for key in ("business_name", "business_address", "panel_title"):
             if key in branding and branding[key] is not None:
                 branding[key] = str(branding[key]).strip()[:200]
@@ -1665,7 +1809,7 @@ def api_phase_advance():
 
 @app.route("/api/phase/go", methods=["POST"])
 def api_phase_go():
-    """Navigate setup — back freely; forward only when gates pass."""
+    """Navigate setup - back freely; forward only when gates pass."""
     body = request.get_json(force=True) or {}
     target = body.get("phase", "").strip()
     if target not in PHASES or target == "butterfly":
@@ -1713,7 +1857,7 @@ def api_phase_go():
 
 @app.route("/api/phase/reset", methods=["POST"])
 def api_phase_reset():
-    """Dev/sandbox helper — restart caterpillar."""
+    """Dev/sandbox helper - restart caterpillar."""
     _save_config({"phase": "welcome", "map_approved": False, "first_count_complete": False})
     return jsonify({"status": "reset", "phase": "welcome"})
 
@@ -1768,7 +1912,7 @@ def api_hard_reset():
 
 @app.route("/api/setup/skip-ai", methods=["POST"])
 def api_skip_ai():
-    """Legacy — AI connect lives in Settings; marks skipped and stays on current phase."""
+    """Legacy - AI connect lives in Settings; marks skipped and stays on current phase."""
     body = request.get_json(force=True) or {}
     bar_name = (body.get("bar_name") or _load_config().get("bar_name") or "").strip()
     patch: dict[str, Any] = {
@@ -1786,7 +1930,7 @@ def api_skip_ai():
         {
             "status": "skipped",
             "phase": cfg["phase"],
-            "message": "Optional AI skipped. The full program runs without it. Add a key anytime under Settings → Optional AI for invoice photos.",
+            "message": "Optional AI skipped. The full program runs without it. Add a key anytime under Settings > Optional AI for invoice photos.",
         }
     )
 
@@ -1821,7 +1965,7 @@ def api_count_notes():
 
 @app.route("/api/cycle/begin-next-count", methods=["POST"])
 def api_begin_next_count():
-    """Open Count step for the next inventory cycle — map and PARs unchanged."""
+    """Open Count step for the next inventory cycle - map and PARs unchanged."""
     cfg = _load_config()
     bar = _load_bar()
     bar_id = bar.get("id", "")
@@ -1829,7 +1973,7 @@ def api_begin_next_count():
     if not setup.get("map_approved"):
         return jsonify({"error": "Approve your inventory map before starting a count."}), 400
     if _bar_bottle_count(bar) < 1:
-        return jsonify({"error": "No bottles on map — complete your walk first."}), 400
+        return jsonify({"error": "No bottles on map - complete your walk first."}), 400
 
     _save_bar_setup(bar_id, {"count_notes": []})
     _save_config(
@@ -1854,10 +1998,10 @@ def api_begin_next_count():
 
 @app.route("/api/count/process-cycle", methods=["POST"])
 def api_process_inventory_cycle():
-    """Close inventory cycle after count — populates metrics, analytics, spreadsheets, week-over-week."""
+    """Close inventory cycle after count - populates metrics, analytics, spreadsheets, week-over-week."""
     bar = _load_bar()
     if _bar_bottle_count(bar) < 1:
-        return jsonify({"error": "No bottles on map — complete your walk first."}), 400
+        return jsonify({"error": "No bottles on map - complete your walk first."}), 400
 
     cfg = _load_config()
     bar_id = bar.get("id", "")
@@ -1974,12 +2118,12 @@ def api_reconcile():
     bar = _load_bar()
     setup = _bar_setup_state(bar)
     if not setup.get("voice_notes") and _bar_bottle_count(bar) == 0:
-        return jsonify({"error": "Walk the bar first — paste notes or add bottles."}), 400
+        return jsonify({"error": "Walk the bar first - paste notes or add bottles."}), 400
     draft, summary = _reconcile_bar(bar)
     cfg = _load_config()
     if not cfg.get("ai_api_key_set") and cfg.get("api_connection_status") != "connected":
         draft["flags"].append(
-            "Optional AI off — map built locally from your walk. Add a key in Settings only if you want invoice photos read."
+            "Optional AI off - map built locally from your walk. Add a key in Settings only if you want invoice photos read."
         )
     _save_bar_setup(bar["id"], {"draft_map": draft})
     return jsonify(
@@ -2014,7 +2158,7 @@ def _walk_sheet_rows(bar: dict[str, Any]) -> list[dict[str, str]]:
         "product_name": "",
         "size": "",
         "level": "",
-        "notes": "Walk sheet — write levels in tenths; use blank rows for discoveries",
+        "notes": "Walk sheet - write levels in tenths; use blank rows for discoveries",
     })
     for station in sorted(bar.get("stations", []), key=lambda s: s.get("order", 0)):
         station_name = station.get("name", "")
@@ -2047,7 +2191,7 @@ def _walk_sheet_rows(bar: dict[str, Any]) -> list[dict[str, str]]:
         for i in range(_WALK_ADD_ROWS_PER_STATION):
             rows.append({
                 "station": station_name,
-                "product_name": f"Missed entry {i + 1} — speak or write:",
+                "product_name": f"Missed entry {i + 1} - speak or write:",
                 "size": "",
                 "level": "",
                 "notes": "",
@@ -2074,7 +2218,7 @@ def _bottle_audit_rows(bar: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _export_audit_xml(bar: dict[str, Any]) -> str:
-    """Structured bottle audit — stations nested with bottles for scripts / ETL."""
+    """Structured bottle audit - stations nested with bottles for scripts / ETL."""
     root = ET.Element("inventory_audit")
     meta = ET.SubElement(root, "meta")
     ET.SubElement(meta, "bar_name").text = (bar.get("name") or "").strip()
@@ -2158,7 +2302,7 @@ def _export_count_comparison_xml(
 
 @app.route("/api/export/count-comparison", methods=["POST"])
 def api_export_count_comparison():
-    """Map vs count line-by-line comparison — CSV, XLSX, or XML."""
+    """Map vs count line-by-line comparison - CSV, XLSX, or XML."""
     body = request.get_json(force=True) or {}
     fmt = (body.get("format") or "csv").lower()
     bar_name = (body.get("bar_name") or _load_bar().get("name") or "bar").strip()
@@ -2182,7 +2326,7 @@ def api_export_count_comparison():
             resp.headers["Content-Disposition"] = f"attachment; filename={safe}_count_comparison.xlsx"
             return resp
         except ImportError:
-            return jsonify({"error": "xlsx export requires openpyxl — run pip install openpyxl"}), 503
+            return jsonify({"error": "xlsx export requires openpyxl - run pip install openpyxl"}), 503
 
     sbuf = io.StringIO()
     writer = csv.writer(sbuf)
@@ -2203,7 +2347,7 @@ def api_export_count_comparison():
 
 @app.route("/api/export/bottles", methods=["GET"])
 def api_export_bottles():
-    """Full bottle-audit or clipboard walk sheet — CSV, XLSX, or XML."""
+    """Full bottle-audit or clipboard walk sheet - CSV, XLSX, or XML."""
     fmt = request.args.get("format", "csv").lower()
     bar = _load_bar()
     safe = re.sub(r"[^\w\-]+", "_", bar.get("name") or "bar").strip("_") or "bar"
@@ -2236,7 +2380,7 @@ def api_export_bottles():
             resp.headers["Content-Disposition"] = f"attachment; filename={safe}_walk_sheet.xlsx"
             return resp
         except ImportError:
-            return jsonify({"error": "xlsx export requires openpyxl — run pip install openpyxl"}), 503
+            return jsonify({"error": "xlsx export requires openpyxl - run pip install openpyxl"}), 503
 
     rows = _bottle_audit_rows(bar)
 
@@ -2246,7 +2390,7 @@ def api_export_bottles():
             resp.headers["Content-Disposition"] = f"attachment; filename={safe}_bottle_audit.xlsx"
             return resp
         except ImportError:
-            return jsonify({"error": "xlsx export requires openpyxl — run pip install openpyxl"}), 503
+            return jsonify({"error": "xlsx export requires openpyxl - run pip install openpyxl"}), 503
 
     sbuf = io.StringIO()
     writer = csv.writer(sbuf)
@@ -2293,7 +2437,7 @@ def api_get_bar():
 
 @app.route("/api/bar", methods=["POST"])
 def api_save_bar():
-    """Save full bar map — stations with nested bottles."""
+    """Save full bar map - stations with nested bottles."""
     body = request.get_json(force=True) or {}
     # Accept bar_id or id (clients often POST the bar record shape)
     bar = _load_bar(body.get("bar_id") or body.get("id") or None)
@@ -2347,7 +2491,7 @@ def api_save_bar():
 
 @app.route("/api/bar/reset-templates", methods=["POST"])
 def api_reset_bar_templates():
-    """Restore starter station templates (wells → back bar → coolers)."""
+    """Restore starter station templates (wells > back bar > coolers)."""
     bar = _reset_bar_templates(_load_bar())
     return jsonify({"status": "reset", "bar": bar, "templates": [s["name"] for s in DEFAULT_STATIONS]})
 
@@ -2722,7 +2866,7 @@ def api_auth_login():
     people = _load_people()
     users = [u for u in people.get("users") or [] if u.get("active", True)]
     if not users:
-        return jsonify({"error": "No logins set up yet — open Settings as admin to create them"}), 400
+        return jsonify({"error": "No logins set up yet - open Settings as admin to create them"}), 400
 
     target = None
     if user_id:
@@ -2731,19 +2875,23 @@ def api_auth_login():
         target = _find_user(people, login=login)
     elif len(users) == 1:
         target = users[0]
-    else:
-        # Try match pin against all (small staff only)
-        for u in users:
-            if _check_pin(pin, u.get("pin_hash") or "", u.get("pin_salt") or ""):
-                target = u
-                break
-        if target is None:
-            return jsonify({"error": "Pick a person, then enter their 6-digit PIN"}), 400
-
     if not target or not target.get("active", True):
-        return jsonify({"error": "Unknown or inactive login"}), 404
-    if not _check_pin(pin, target.get("pin_hash") or "", target.get("pin_salt") or ""):
+        return jsonify({"error": "Pick a person, then enter their 6-digit PIN"}), 400
+
+    locked = _login_locked(target["id"])
+    if locked:
+        return jsonify({"error": f"Too many tries. Locked for {locked // 60 + 1} more minutes."}), 429
+    if not _check_pin(pin, target):
+        _record_login(target["id"], False)
         return jsonify({"error": "Wrong PIN"}), 401
+    _record_login(target["id"], True)
+    if (target.get("pin_salt") or "") != "":
+        people_now = _load_people()
+        fresh = _find_user(people_now, user_id=target["id"])
+        if fresh:
+            fresh["pin_hash"] = _hash_pin(pin)
+            fresh.pop("pin_salt", None)
+            _save_people(people_now)
 
     session.clear()
     session.permanent = True
@@ -2797,17 +2945,18 @@ def api_people_list():
 
 @app.route("/api/people", methods=["POST"])
 def api_people_create():
-    """Create admin (first PIN) or a bar manager."""
-    denied = _require_admin()
-    if denied:
-        return denied
+    """Create the first admin (guarded by setup token) or a team member."""
+    if _load_people().get("users"):
+        denied = _require_admin()
+        if denied:
+            return denied
     body = request.get_json(force=True) or {}
     name = (body.get("name") or "").strip()[:80]
     login = re.sub(r"[^a-zA-Z0-9._-]", "", (body.get("login") or "").strip())[:32].lower()
     pin = str(body.get("pin") or "").strip()
     role = (body.get("role") or "manager").strip().lower()
-    if role not in ("admin", "manager"):
-        role = "manager"
+    if role not in ROLE_RANK:
+        role = "staff"
     venue_id = (body.get("venue_id") or "").strip() or None
     perms_in = body.get("permissions") if isinstance(body.get("permissions"), dict) else {}
 
@@ -2827,13 +2976,8 @@ def api_people_create():
         role = "admin"
         venue_id = None
 
-    if role == "manager":
-        if not venue_id:
-            return jsonify({"error": "Bar managers need a venue assigned"}), 400
-        registry = _load_bars_registry()
-        _, vbar = _find_bar(registry, venue_id)
-        if vbar is None:
-            return jsonify({"error": "Venue not found"}), 404
+    if role != "admin":
+        venue_id = None  # single-venue install
         perms = dict(DEFAULT_MANAGER_PERMISSIONS)
         for k, v in perms_in.items():
             if k in DEFAULT_MANAGER_PERMISSIONS:
@@ -2842,15 +2986,15 @@ def api_people_create():
         perms = dict(ADMIN_PERMISSIONS)
         venue_id = None
 
-    pin_hash, salt = _hash_pin(pin)
+    jobs_in = body.get("stock_jobs") if isinstance(body.get("stock_jobs"), dict) else {}
     user = {
+        "stock_jobs": {j: bool(jobs_in.get(j)) for j in STOCK_JOBS},
         "id": _uid("user-"),
         "name": name,
         "login": login,
         "role": role,
         "venue_id": venue_id,
-        "pin_hash": pin_hash,
-        "pin_salt": salt,
+        "pin_hash": _hash_pin(pin),
         "permissions": perms,
         "active": True,
         "created_at": _now(),
@@ -2902,6 +3046,21 @@ def api_people_update(user_id: str):
             if k in DEFAULT_MANAGER_PERMISSIONS:
                 perms[k] = bool(v)
         user["permissions"] = perms
+    if "stock_jobs" in body and isinstance(body["stock_jobs"], dict):
+        have = dict(user.get("stock_jobs") or {})
+        for j in STOCK_JOBS:
+            if j in body["stock_jobs"]:
+                have[j] = bool(body["stock_jobs"][j])
+        user["stock_jobs"] = have
+    if "role" in body:
+        role = str(body.get("role") or "").strip().lower()
+        if role not in ROLE_RANK:
+            return jsonify({"error": "Unknown role"}), 400
+        if user.get("role") == "admin" and role != "admin":
+            admins = [u for u in people["users"] if u.get("role") == "admin" and u.get("active", True) and u.get("id") != user_id]
+            if not admins:
+                return jsonify({"error": "Keep at least one active admin"}), 400
+        user["role"] = role
     if "active" in body:
         # Don't deactivate the last admin
         if user.get("role") == "admin" and not body.get("active"):
@@ -2917,7 +3076,7 @@ def api_people_update(user_id: str):
 
 @app.route("/api/people/<user_id>/reset-pin", methods=["POST"])
 def api_people_reset_pin(user_id: str):
-    """Admin sets a new 6-digit PIN — no old PIN required."""
+    """Admin sets a new 6-digit PIN - no old PIN required."""
     denied = _require_admin()
     if denied:
         return denied
@@ -2929,12 +3088,11 @@ def api_people_reset_pin(user_id: str):
     user = _find_user(people, user_id=user_id)
     if not user:
         return jsonify({"error": "Person not found"}), 404
-    pin_hash, salt = _hash_pin(pin)
-    user["pin_hash"] = pin_hash
-    user["pin_salt"] = salt
+    user["pin_hash"] = _hash_pin(pin)
+    user.pop("pin_salt", None)
     user["updated_at"] = _now()
     _save_people(people)
-    return jsonify({"status": "ok", "user": _user_public(user), "message": "PIN reset — give them the new 6 digits."})
+    return jsonify({"status": "ok", "user": _user_public(user), "message": "PIN reset - give them the new 6 digits."})
 
 
 @app.route("/api/people/<user_id>", methods=["DELETE"])
@@ -2990,7 +3148,7 @@ def api_staff_board_post():
     text = (body.get("text") or body.get("body") or "").strip()
     if not text:
         return jsonify({"error": "Paste or upload inventory notes first"}), 400
-    # Walks/counts can run long — allow up to 20k (was 2k staff handoffs)
+    # Walks/counts can run long - allow up to 20k (was 2k staff handoffs)
     if len(text) > 20000:
         text = text[:20000]
     venue_id = (body.get("venue_id") or "").strip() or None
@@ -3103,7 +3261,7 @@ def api_reports_first_week():
         c for c in _load_state().get("cycles", []) if c.get("bar_id") == bar_id
     ]
     if not cycles:
-        return jsonify({"error": "No completed cycle yet — finish your first count."}), 404
+        return jsonify({"error": "No completed cycle yet - finish your first count."}), 404
     first = cycles[0]
     bar = _load_bar(bar_id or None)
     return jsonify(
@@ -3216,7 +3374,7 @@ def api_parse_invoice():
     if upload and upload.filename:
         raw = upload.read()
         if len(raw) > 8_000_000:
-            return jsonify({"error": "Image too large — use a photo under 8MB."}), 400
+            return jsonify({"error": "Image too large - use a photo under 8MB."}), 400
         ext = os.path.splitext(upload.filename)[1].lower()
         media = {
             ".jpg": "image/jpeg",
@@ -3269,7 +3427,7 @@ def api_save_parsed_invoice():
     note = (body.get("note") or "").strip()
     lines = invoice.get("lines") or []
     if not lines:
-        return jsonify({"error": "No line items to save — parse the invoice first."}), 400
+        return jsonify({"error": "No line items to save - parse the invoice first."}), 400
 
     os.makedirs(os.path.join(_POS_DIR, "files"), exist_ok=True)
     raw_text = invoice.get("raw_text") or json.dumps(invoice, indent=2)
@@ -3329,6 +3487,16 @@ def api_pos_log_delete(entry_id: str):
     return jsonify({"status": "deleted", "id": entry_id})
 
 
+@app.route("/stock")
+def stock_page():
+    return send_from_directory(_STATIC, "stock.html")
+
+
+import venue_api  # noqa: E402
+
+venue_api.register(app, _DATA, _has_role, _session_user)
+
+
 # V1.5 Weight support API
 @app.route("/api/weights", methods=["GET"])
 def api_weights():
@@ -3342,18 +3510,20 @@ if __name__ == "__main__":
         _write_json(_CONFIG_FILE, DEFAULT_CONFIG)
         print(f"[init] created {_CONFIG_FILE}")
 
-    print("\n  Open Source Barware — Chrome Program")
+    print("\n  Open Source Barware - Chrome Program")
     print("  " + "-" * 54)
-    print(f"  Version:    {VERSION}  (V1.5 Phase 1 — Accuracy & Mobile)")
-    print(f"  Setup:      http://localhost:{PORT}/")
-    print(f"  Home base:  http://localhost:{PORT}/home  (after butterfly)")
-    print(f"  API state:  http://localhost:{PORT}/api/state")
-    print(f"  API weights: http://localhost:{PORT}/api/weights  (V1.5)")
+    print(f"  Version:    {VERSION}  (V1.5 Phase 1 - Accuracy & Mobile)")
+    print(f"  Stock app:  http://localhost:{PORT}/stock")
     print(f"  Data dir:   {_DATA}")
     print("  " + "-" * 54 + "\n")
 
-    cert = os.path.join(_DIR, "localhost+1.pem")
-    key = os.path.join(_DIR, "localhost+1-key.pem")
-    ssl_ctx = (cert, key) if os.path.exists(cert) and os.path.exists(key) else None
+    _migrate_pin_hashes()
+    if not _load_people().get("users"):
+        print(f"  First-admin setup token: {_setup_token()}\n")
 
-    app.run(host="0.0.0.0", port=PORT, debug=False, threaded=True, ssl_context=ssl_ctx)
+    venue_api.start_poller(_DATA)
+
+    from waitress import serve
+
+    print(f"  Serving on {BIND_HOST}:{PORT} (set OSB_BIND to change)\n")
+    serve(app, host=BIND_HOST, port=PORT, threads=8)

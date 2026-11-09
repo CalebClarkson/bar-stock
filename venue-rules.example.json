@@ -1,0 +1,18 @@
+{
+  "_about": "Copy to data/venue-rules.json and fill in for your venue. Every part is optional; anything not matched here can be matched by hand in the app.",
+  "aliases": [
+    {"name": "Acme Syrups", "variant": "Plain Sugar", "to_name": "Gomme Syrup", "to_variant": "Original"}
+  ],
+  "catalogue_match": {
+    "house vodka": ["Vodka", "Original", 700],
+    "house red|175ml": ["Red Wine", "House", 750]
+  },
+  "postmix_items": ["cola", "lemonade"],
+  "postmix_parts": 6,
+  "dash_ml": 25,
+  "shot_ml": 25,
+  "regular_size": {"house shot": 25},
+  "variation_size": {"reserve": 25},
+  "bar_categories": ["BEER", "COCKTAILS", "SOFT DRINKS", "SPIRITS", "WINE"],
+  "uncategorised_drinks": ["negroni"]
+}

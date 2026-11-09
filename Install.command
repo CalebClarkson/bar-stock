@@ -1,5 +1,5 @@
 #!/bin/bash
-# Open Source Barware — Mac first-time setup (double-click)
+# Open Source Barware - Mac first-time setup (double-click)
 set -e
 
 INSTALL_DIR="$HOME/osb-program"
@@ -10,7 +10,7 @@ PORT=5052
 
 clear
 echo ""
-echo "  Open Source Barware — Mac Install"
+echo "  Open Source Barware - Mac Install"
 echo "  ---------------------------------"
 echo ""
 

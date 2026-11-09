@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Open Source Bar Program — Home Base</title>
+  <title>The Open Source Bar Program - Home Base</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/static/css/app.css" />
 </head>
 <body data-app="home" class="admin-body">
-  <div class="demo-ribbon">The Open Source Bar Program · Live demo — field-tested at Your Bar 1</div>
+  <div class="demo-ribbon">The Open Source Bar Program · Live demo - field-tested at Your Bar 1</div>
 
   <!-- V1.5 PIN login -->
   <div id="pinLoginOverlay" class="pin-login-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="pinLoginTitle">
@@ -45,7 +45,7 @@
         <p class="sidebar-business-name hidden" id="sidebarBusinessName"></p>
         <p class="sidebar-business-address hidden" id="sidebarBusinessAddress"></p>
         <div id="sessionChip" class="session-chip hidden">
-          <span id="sessionChipName">—</span>
+          <span id="sessionChipName">-</span>
           <button type="button" class="btn btn-ghost btn-sm" id="btnLogout" title="Sign out">Out</button>
         </div>
         <label for="barSwitcher" class="sidebar-bar-label" id="barSwitcherLabel">Active venue</label>
@@ -60,7 +60,7 @@
         </button>
         <button type="button" class="sidebar-link" data-view="spreadsheets" data-perm="spreadsheets">
           <svg class="sidebar-icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="3" width="16" height="14" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M2 8h16M7 8v9M12 8v9" stroke="currentColor" stroke-width="1.2"/></svg>
-          <span class="sidebar-link-text"><strong>Inventory / Spreadsheets</strong><small>PARs, variance, orders — live</small></span>
+          <span class="sidebar-link-text"><strong>Inventory / Spreadsheets</strong><small>PARs, variance, orders - live</small></span>
         </button>
         <button type="button" class="sidebar-link" data-view="analytics" data-perm="reports">
           <svg class="sidebar-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 16V8l4-3 4 6 3-4 3 9H3z" fill="currentColor" opacity="0.85"/></svg>
@@ -95,7 +95,7 @@
           <div>
             <p class="view-eyebrow">Operations</p>
             <h1>Home base</h1>
-            <p>Your cycle metrics, baseline, and quick paths — all live after Process.</p>
+            <p>Your cycle metrics, baseline, and quick paths - all live after Process.</p>
           </div>
         </header>
         <div id="dashboardHero" class="dashboard-hero hidden">
@@ -157,10 +157,10 @@
               <strong>All inputs</strong>
               <span>POS · invoices · next inventory</span>
             </button>
-            <!-- V1.5 Phase 1.2 Mobile Count — fun, professional, large taps -->
+            <!-- V1.5 Phase 1.2 Mobile Count - fun, professional, large taps -->
             <button type="button" class="nav-card nav-card-btn" id="btnMobileCount" data-perm="mobile_count" style="grid-column: span 2; background: linear-gradient(145deg, var(--bg-card), var(--bg-warm)); border-color: var(--copper);">
               <span class="nav-card-icon" aria-hidden="true">📱</span>
-              <strong>Mobile Count — Walk the floor</strong>
+              <strong>Mobile Count - Walk the floor</strong>
               <span>Large taps • shelf-to-sheet • weigh optional • one hand friendly</span>
             </button>
             <button type="button" class="nav-card nav-card-btn" id="btnRecipes" data-perm="recipes">
@@ -168,7 +168,7 @@
               <span>Build recipes, menu costs</span>
             </button>
             <button type="button" class="nav-card nav-card-btn" id="btnSmartOrders" data-perm="smart_orders">
-              <strong>Smart Orders → PO</strong>
+              <strong>Smart Orders &gt; PO</strong>
               <span>Suggestions · 1-click PO · email · CSV</span>
             </button>
             <button type="button" class="nav-card nav-card-btn" id="btnTransferStock" data-perm="transfers" style="grid-column: span 2;">
@@ -183,7 +183,7 @@
         <header class="view-header">
           <p class="view-eyebrow">Inventory / Spreadsheets</p>
           <h1>Your live workbook</h1>
-          <p class="view-lead">This is where your entire inventory system lives — built on the same Excel logic you've used for years. Every Process updates these tabs. Set your <strong>PARs</strong> here first; next week, order straight from <strong>Order Generator</strong>.</p>
+          <p class="view-lead">This is where your entire inventory system lives - built on the same Excel logic you've used for years. Every Process updates these tabs. Set your <strong>PARs</strong> here first; next week, order straight from <strong>Order Generator</strong>.</p>
         </header>
         <div class="spreadsheet-layout">
           <div class="spreadsheet-live">
@@ -212,7 +212,7 @@
             <div class="spreadsheet-export-list">
               <a class="spreadsheet-export-card" href="/downloads/Bar-Inventory-Master.xlsx" download>
                 <strong>Bar Inventory Master</strong>
-                <span>Original .xlsx template — the spreadsheet this program wraps</span>
+                <span>Original .xlsx template - the spreadsheet this program wraps</span>
               </a>
               <a class="spreadsheet-export-card" href="/api/export/bottles?format=xlsx" download>
                 <strong>Live audit export</strong>
@@ -231,7 +231,7 @@
         <header class="view-header">
           <p class="view-eyebrow">Program health</p>
           <h1>Shift reports</h1>
-          <p class="view-lead">Readable first — what happened, what needs a hand, what to order. Full numbers underneath for anyone who wants the deep cut.</p>
+          <p class="view-lead">Readable first - what happened, what needs a hand, what to order. Full numbers underneath for anyone who wants the deep cut.</p>
         </header>
         <div id="analyticsRoot" class="analytics-root">
           <p class="field-hint">Loading your report…</p>
@@ -242,7 +242,7 @@
         <header class="view-header">
           <p class="view-eyebrow">On hand</p>
           <h1>In-house inventory</h1>
-          <p id="inhouseNote">What is on hand after your last count — grouped by category.</p>
+          <p id="inhouseNote">What is on hand after your last count - grouped by category.</p>
         </header>
         <div class="panel panel--glass">
           <div class="row" style="margin-top:0;">
@@ -267,14 +267,14 @@
           <p class="view-eyebrow">Team</p>
           <h1>Employee communications</h1>
           <p class="view-lead">
-            Managers upload <strong>inventory notes</strong> here — voice walks, station levels, mid-week catches.
+            Managers upload <strong>inventory notes</strong> here - voice walks, station levels, mid-week catches.
             Drop a phone Notes export (.txt / .md) or paste the transcription. English or Spanish structure words work.
-            Stays on this machine. Pairs with <strong>Settings → People &amp; access</strong> (6-digit PINs).
+            Stays on this machine. Pairs with <strong>Settings &gt; People &amp; access</strong> (6-digit PINs).
           </p>
         </header>
         <div class="panel panel--glass">
           <h2 class="view-subhead" style="margin-top:0;font-size:1.1rem;">Upload inventory notes</h2>
-          <label for="staffNotesFile">File (.txt, .md — iPhone Notes, Google Keep, Samsung Notes)</label>
+          <label for="staffNotesFile">File (.txt, .md - iPhone Notes, Google Keep, Samsung Notes)</label>
           <input
             type="file"
             id="staffNotesFile"
@@ -304,7 +304,7 @@
           </div>
           <p class="field-hint" style="margin-top:10px;">
             After you save a <strong>walk</strong>, open <strong>Setup</strong> (or restart caterpillar on a bar) and paste the same notes into Walk if you want the map builder to parse them.
-            This board is the team inbox — notes stay here for every shift.
+            This board is the team inbox - notes stay here for every shift.
           </p>
           <p id="staffBoardStatus" class="status"></p>
         </div>
@@ -329,12 +329,12 @@
           <p id="inputsCycleStatus" class="inputs-cycle-status">Loading cycle status…</p>
           <ol class="inputs-cycle-steps">
             <li>Walk the bar and voice-count every bottle (or paste your count file)</li>
-            <li>Click <strong>Process</strong> — spreadsheets, variance, and week-over-week update</li>
+            <li>Click <strong>Process</strong> - spreadsheets, variance, and week-over-week update</li>
             <li>Return here for the next week's POS and invoices</li>
           </ol>
           <div class="inputs-cycle-actions">
-            <button type="button" class="btn btn-primary btn-lg" id="btnBeginNextInventory">Start next count →</button>
-            <p class="field-hint">Opens <strong>Count</strong> (setup step 5). Your map and PARs stay — only the count is new.</p>
+            <button type="button" class="btn btn-primary btn-lg" id="btnBeginNextInventory">Start next count &gt;</button>
+            <p class="field-hint">Opens <strong>Count</strong> (setup step 5). Your map and PARs stay - only the count is new.</p>
           </div>
           <p id="inputsCycleMsg" class="status"></p>
         </div>
@@ -343,7 +343,7 @@
           <div class="panel panel--glass">
             <p class="inputs-type-eyebrow">Mid-week · POS</p>
             <h2>POS terminal receipts</h2>
-            <p class="field-hint panel-lead">Export from your POS — <strong>.csv/.txt</strong> from Toast, Square etc. Paste text or file, use "Parse &amp; Review Matches" for structured auto-match + edit before save. Raw drop option always available. We'll improve formats over time.</p>
+            <p class="field-hint panel-lead">Export from your POS - <strong>.csv/.txt</strong> from Toast, Square etc. Paste text or file, use "Parse &amp; Review Matches" for structured auto-match + edit before save. Raw drop option always available. We'll improve formats over time.</p>
             <label for="posLabel">Label</label>
             <input id="posLabel" type="text" placeholder="e.g. Tuesday close" />
             <label for="posNote">Note (optional)</label>
@@ -353,7 +353,7 @@
             <label for="posPaste">Or paste receipt text</label>
             <textarea id="posPaste" rows="3" placeholder="Paste POS export text"></textarea>
             <div class="actions">
-              <button type="button" class="btn btn-primary" id="btnPosParse">Parse &amp; Review Matches →</button>
+              <button type="button" class="btn btn-primary" id="btnPosParse">Parse &amp; Review Matches &gt;</button>
               <button type="button" class="btn btn-secondary" id="btnPosUpload">Save raw drop</button>
             </div>
             <div id="posParsePreview" class="invoice-parse-preview hidden"></div>
@@ -362,7 +362,7 @@
           <div class="panel panel--glass invoice-panel">
             <p class="inputs-type-eyebrow">Mid-week · Invoice</p>
             <h2>Vendor invoices</h2>
-            <p class="field-hint panel-lead"><strong>No AI needed:</strong> paste invoice text or type purchases in your workbook. <strong>With optional AI:</strong> snap a photo on your phone → upload here and we read line items into the input log.</p>
+            <p class="field-hint panel-lead"><strong>No AI needed:</strong> paste invoice text or type purchases in your workbook. <strong>With optional AI:</strong> snap a photo on your phone &gt; upload here and we read line items into the input log.</p>
             <p id="invoiceAiStatus" class="invoice-ai-status field-hint"></p>
             <label for="invoicePhoto">Invoice photo (phone camera)</label>
             <input id="invoicePhoto" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/*" capture="environment" />
@@ -375,7 +375,7 @@
             <label for="invoicePaste">Or paste invoice text</label>
             <textarea id="invoicePaste" rows="3" placeholder="Paste invoice line items if you already have text"></textarea>
             <div class="actions actions-trio">
-              <button type="button" class="btn btn-primary" id="btnInvoiceParse">Read photo (needs AI) →</button>
+              <button type="button" class="btn btn-primary" id="btnInvoiceParse">Read photo (needs AI) &gt;</button>
               <button type="button" class="btn btn-secondary" id="btnInvoiceUpload">Save raw drop</button>
             </div>
             <div id="invoiceParsePreview" class="invoice-parse-preview hidden"></div>
@@ -397,7 +397,7 @@
 
         <div class="panel panel--glass">
           <h2>Input log</h2>
-          <p class="field-hint panel-lead">Everything staged this cycle — POS, invoices, until Process locks the week.</p>
+          <p class="field-hint panel-lead">Everything staged this cycle - POS, invoices, until Process locks the week.</p>
           <div class="inputs-log-filters" role="tablist" id="inputsLogFilters">
             <button type="button" class="inputs-log-filter active" data-log-filter="all">All</button>
             <button type="button" class="inputs-log-filter" data-log-filter="pos">POS</button>
@@ -414,7 +414,7 @@
         <header class="view-header">
           <p class="view-eyebrow">Configure</p>
           <h1>Settings</h1>
-          <p>Your business profile, bars, cycle settings — and an <strong>optional</strong> AI connection for invoice photos only.</p>
+          <p>Your business profile, bars, cycle settings - and an <strong>optional</strong> AI connection for invoice photos only.</p>
         </header>
         <div class="settings-grid">
           <!-- Coming soon · v2.0 roadmap (fun, visible under Settings) -->
@@ -422,20 +422,20 @@
             <p class="settings-ai-eyebrow">🔮 Roadmap · not shipping yet</p>
             <h2>Coming soon</h2>
             <p class="field-hint panel-lead">
-              You&rsquo;re on the free bar program. Here&rsquo;s what we&rsquo;re building next —
+              You&rsquo;re on the free bar program. Here&rsquo;s what we&rsquo;re building next -
               same local-first philosophy, bigger stage.
             </p>
 
             <div class="coming-soon-hero">
               <span class="coming-soon-badge">Build 2.0</span>
               <p class="coming-soon-tagline">
-                One release. Three launches. Same free core for bars — plus language and restaurant power.
+                One release. Three launches. Same free core for bars - plus language and restaurant power.
               </p>
             </div>
 
             <div class="coming-soon-grid">
               <article class="coming-soon-card coming-soon-card--primary">
-                <h3>Build 2.0 — the next bar program</h3>
+                <h3>Build 2.0 - the next bar program</h3>
                 <p>
                   The big leap after v1.5: faster mobile counting, installable phone experience (PWA),
                   deeper bottle-weights seed, blueprint polish, smarter POS matching, and the polish
@@ -454,7 +454,7 @@
                 <h3>Full Spanish download</h3>
                 <p>
                   Same release window as 2.0: a <strong>complete Spanish UI</strong> package
-                  (Mexican Spanish) — not just bilingual walk/count notes. Install in your language,
+                  (Mexican Spanish) - not just bilingual walk/count notes. Install in your language,
                   run the whole program in Spanish.
                 </p>
                 <ul class="coming-soon-list">
@@ -465,11 +465,11 @@
               </article>
 
               <article class="coming-soon-card coming-soon-card--restaurant">
-                <h3>Restaurant edition — food inventory</h3>
+                <h3>Restaurant edition - food inventory</h3>
                 <p>
                   Our first <strong>full restaurant inventory system</strong> under Intelligent
                   Hospitality Systems: food, prep, coolers, and the back-of-house flows bars alone
-                  don&rsquo;t need — built for kitchens that outgrow beverage-only.
+                  don&rsquo;t need - built for kitchens that outgrow beverage-only.
                 </p>
                 <ul class="coming-soon-list">
                   <li>Food / prep / dry-goods categories</li>
@@ -481,14 +481,14 @@
             </div>
 
             <p class="coming-soon-foot">
-              No dates carved in stone here — we ship when it&rsquo;s honest. Star us on GitHub and
+              No dates carved in stone here - we ship when it&rsquo;s honest. Star us on GitHub and
               join the release list on opensourcebarware.com so you hear first.
             </p>
           </div>
 
           <div class="panel panel--glass settings-brand-panel">
             <h2>Your business</h2>
-            <p class="field-hint panel-lead">Name your panel, add your address, and upload a logo or photo — shows in the sidebar on every visit.</p>
+            <p class="field-hint panel-lead">Name your panel, add your address, and upload a logo or photo - shows in the sidebar on every visit.</p>
             <div class="brand-preview" id="brandPreview">
               <div class="brand-preview-mark" id="brandPreviewMark">
                 <img id="brandPreviewLogo" class="brand-preview-logo hidden" alt="" width="48" height="48" />
@@ -503,7 +503,7 @@
             <input id="settBusinessName" type="text" placeholder="e.g. Your Bar 1" />
             <label for="settBusinessAddress">Address</label>
             <input id="settBusinessAddress" type="text" placeholder="Street, city, state" />
-            <label for="settPanelTitle">Panel title <span class="field-hint">(optional — overrides sidebar headline)</span></label>
+            <label for="settPanelTitle">Panel title <span class="field-hint">(optional - overrides sidebar headline)</span></label>
             <input id="settPanelTitle" type="text" placeholder="e.g. Beverage control center" />
             <label for="settBusinessLogo">Logo or photo</label>
             <input id="settBusinessLogo" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
@@ -534,7 +534,7 @@
               <strong>Admin can reset any PIN</strong> without knowing the old one.
             </p>
             <div id="peopleOpenModeNote" class="people-open-note">
-              No logins yet — anyone on this machine is full admin. Set your admin PIN first, then add managers.
+              No logins yet - anyone on this machine is full admin. Set your admin PIN first, then add managers.
             </div>
             <div class="people-create">
               <h3 class="people-subhead">Add person</h3>
@@ -621,7 +621,7 @@
             </div>
             <p class="field-hint" style="margin-top:8px;">
               Coming as add-on: official Bluetooth liquor scale for one-tap super-accurate weighing. 
-              Enable mode now to get familiar — your data stays the same if you switch back.
+              Enable mode now to get familiar - your data stays the same if you switch back.
             </p>
             <div class="actions">
               <button type="button" class="btn btn-primary" id="btnSaveWeigh">Save weighing preference</button>
@@ -634,13 +634,13 @@
             <h2>Optional AI connection</h2>
             <p class="field-hint panel-lead">
               <strong>The program does not need AI to run.</strong> Walks, counts, reconciliation, and spreadsheets
-              are built in. Connect only if you want phone <strong>invoice photos</strong> read automatically —
+              are built in. Connect only if you want phone <strong>invoice photos</strong> read automatically -
               or for upcoming <strong>wine-cooler video</strong> walks. Otherwise type invoice numbers yourself
               in All inputs or your workbook.
             </p>
             <div class="api-status-row">
               <span>Invoice photo reading</span>
-              <span id="apiStatusBadge" class="status-badge">—</span>
+              <span id="apiStatusBadge" class="status-badge">-</span>
             </div>
             <label for="settAiProvider">AI provider</label>
             <select id="settAiProvider">
@@ -651,7 +651,7 @@
               <option value="other">Other</option>
             </select>
             <label for="settApiKey">API key</label>
-            <input id="settApiKey" type="password" placeholder="Paste key — stored on this Mac only" autocomplete="off" />
+            <input id="settApiKey" type="password" placeholder="Paste key - stored on this Mac only" autocomplete="off" />
             <div class="actions actions-trio">
               <button type="button" class="btn btn-primary" id="btnSaveApi">Save connection</button>
               <a class="btn btn-secondary" href="/help/api-key" target="_blank" rel="noopener">Where to find a key</a>

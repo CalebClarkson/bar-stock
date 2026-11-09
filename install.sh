@@ -1,5 +1,5 @@
 #!/bin/bash
-# Open Source Barware — Chrome Program Installer (OVLP POP pattern)
+# Open Source Barware - Chrome Program Installer (OVLP POP pattern)
 # Usage: curl -fsSL https://raw.githubusercontent.com/RichardBJamison/open-source-barware/main/program/install.sh | bash
 
 set -e
@@ -13,7 +13,7 @@ GITHUB_RAW="https://raw.githubusercontent.com/RichardBJamison/open-source-barwar
 clear
 echo ""
 echo "  ╔══════════════════════════════════════════════════╗"
-echo "  ║   Open Source Barware — Chrome Program Install   ║"
+echo "  ║   Open Source Barware - Chrome Program Install   ║"
 echo "  ╚══════════════════════════════════════════════════╝"
 echo ""
 

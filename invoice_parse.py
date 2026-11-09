@@ -1,4 +1,4 @@
-"""Invoice parsing — local text heuristics + optional AI vision (Claude/OpenAI)."""
+"""Invoice parsing - local text heuristics + optional AI vision (Claude/OpenAI)."""
 
 from __future__ import annotations
 
@@ -98,7 +98,7 @@ def _extract_json_blob(text: str) -> dict[str, Any]:
 
 def _anthropic_vision(b64: str, media_type: str, api_key: str, prompt: str) -> dict[str, Any]:
     body = {
-        "model": "claude-sonnet-4-20250514",
+        "model": "claude-sonnet-5-5",
         "max_tokens": 4096,
         "messages": [
             {
@@ -167,7 +167,7 @@ def _openai_vision(b64: str, media_type: str, api_key: str, prompt: str) -> dict
 
 def _anthropic_text(api_key: str, prompt: str, invoice_text: str) -> dict[str, Any]:
     body = {
-        "model": "claude-sonnet-4-20250514",
+        "model": "claude-sonnet-5-5",
         "max_tokens": 4096,
         "messages": [
             {
@@ -201,7 +201,7 @@ def parse_invoice_image(
 ) -> dict[str, Any]:
     if not api_key:
         raise ValueError(
-            "Optional AI: connect your API key in Settings → Optional AI to read invoice photos — or paste/type invoice numbers yourself."
+            "Optional AI: connect your API key in Settings > Optional AI to read invoice photos - or paste/type invoice numbers yourself."
         )
     b64 = base64.standard_b64encode(image_bytes).decode("ascii")
     prov = (provider or "claude").lower()
@@ -215,7 +215,7 @@ def parse_invoice_text_ai(text: str, api_key: str, provider: str) -> dict[str, A
         raise ValueError("AI API key required")
     prov = (provider or "claude").lower()
     if prov in ("chatgpt", "openai"):
-        raise ValueError("Text AI parse uses Claude for now — set provider to Claude")
+        raise ValueError("Text AI parse uses Claude for now - set provider to Claude")
     return _anthropic_text(api_key, _INVOICE_JSON_PROMPT, text)
 
 
@@ -250,5 +250,5 @@ def parse_invoice(
         local["raw_text"] = text[:8000]
         return local
     raise ValueError(
-        "Could not parse invoice — connect AI in Settings for photos, or paste clearer line-item text."
+        "Could not parse invoice - connect AI in Settings for photos, or paste clearer line-item text."
     )

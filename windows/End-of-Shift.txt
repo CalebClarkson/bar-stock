@@ -1,0 +1,20 @@
+BAR STOCK - END OF SHIFT
+
+1. Square Dashboard > Reports > Item sales. Choose today's date.
+   Press Export > Item sales detail CSV.
+2. Open Bar Stock (shortcut on the desktop) and sign in.
+3. Press Upload Square sales and choose the file (or drag it onto the box).
+   Uploading the same file twice is safe.
+4. Spills or anything not rung through Square: press Log wastage or staff drink.
+5. Made a batch? Press Make a batch.
+
+Managers, if the front page shows a yellow note:
+- "Square items not linked": press Link them, then pick the drink or product,
+  or press No stock for food and anything else that isn't bar stock.
+- "Comps with no reason": press Sort them and pick a reason for each.
+
+New drink or special: Settings > Drinks & specials > + New special.
+Give it the same name as its Square button and it links itself.
+Deliveries: Settings > Deliveries, once checked in.
+Stocktake: press Stocktake, count Bar and Cellar, then press Finish stocktake once.
+Do not add a delivery during a stocktake.

@@ -1,4 +1,4 @@
-/* Open Source Barware — Chrome program client */
+/* Open Source Barware - Chrome program client */
 
 const SETUP_FLOW = [
   "welcome",
@@ -296,7 +296,7 @@ const OSB = {
     return r.json();
   },
 
-  /** V1.5 Phase 4.1 — move stock between venues */
+  /** V1.5 Phase 4.1 - move stock between venues */
   async transferStock({ fromBarId, toBarId, bottleId, product, size, qty, note, createIfMissing = true }) {
     const r = await fetch("/api/bars/transfer", {
       method: "POST",
@@ -1121,7 +1121,7 @@ function updateWalkContinueButton() {
   btn.classList.toggle("btn-walk-gated", !ready);
   btn.setAttribute("aria-disabled", ready ? "false" : "true");
   if (ready) {
-    btn.textContent = "Continue to reconcile →";
+    btn.textContent = "Continue to reconcile >";
   } else if (bottleCount() === 0) {
     btn.textContent = "Parse my notes to continue";
   } else {
@@ -1140,10 +1140,10 @@ function updateWalkReviewProgress() {
   const remaining = bottles.length - verified;
   el.textContent =
     bottles.length === 0
-      ? "No bottles yet — upload notes or add manually."
+      ? "No bottles yet - upload notes or add manually."
       : remaining
-        ? `${verified} of ${bottles.length} sizes reviewed — ${remaining} still need the OK checkbox`
-        : `${verified} of ${bottles.length} sizes reviewed — ready to continue`;
+        ? `${verified} of ${bottles.length} sizes reviewed - ${remaining} still need the OK checkbox`
+        : `${verified} of ${bottles.length} sizes reviewed - ready to continue`;
 }
 
 function setReviewPath(path) {
@@ -1296,12 +1296,12 @@ function downloadWalkCsv() {
   a.download = `${(barState.name || "bar").replace(/[^\w\-]+/g, "_")}_walk_correction.csv`;
   a.click();
   URL.revokeObjectURL(a.href);
-  setStatus("Correction sheet downloaded — edit and import when ready.");
+  setStatus("Correction sheet downloaded - edit and import when ready.");
 }
 
 async function importWalkCsv(text) {
   const rows = parseCsv(text);
-  if (!rows.length) throw new Error("That file looks empty — keep the header row from our download.");
+  if (!rows.length) throw new Error("That file looks empty - keep the header row from our download.");
   let updated = 0;
   for (const row of rows) {
     const bottleId = row.bottle_id;
@@ -1322,7 +1322,7 @@ async function importWalkCsv(text) {
     }
     updated++;
   }
-  if (!updated) throw new Error("No matching rows — use our download template and keep bottle_id values.");
+  if (!updated) throw new Error("No matching rows - use our download template and keep bottle_id values.");
   await setWalkReviewStatus("imported");
   renderWalkReview();
   updateWalkSummary();
@@ -1364,7 +1364,7 @@ function bindWalkReviewListeners() {
     await refreshWalkReviewBars();
     await setWalkReviewStatus("complete");
     renderWalkReview();
-    setStatus("Sizes marked reviewed — you can continue when ready.");
+    setStatus("Sizes marked reviewed - you can continue when ready.");
   });
 
   // V1.5 setup weigh toggle - makes weigh optional, re-renders table
@@ -1374,11 +1374,11 @@ function bindWalkReviewListeners() {
 
   document.getElementById("btnWalkReviewSkip")?.addEventListener("click", async () => {
     const ok = window.confirm(
-      "Continue with our best guess?\n\nNames and sizes may be wrong — you'll need to fix them in Step 5 Review or your first count. Only do this if you're stuck."
+      "Continue with our best guess?\n\nNames and sizes may be wrong - you'll need to fix them in Step 5 Review or your first count. Only do this if you're stuck."
     );
     if (!ok) return;
     await setWalkReviewStatus("skipped");
-    setStatus("Continuing with defaults — fix in Review step when you can.");
+    setStatus("Continuing with defaults - fix in Review step when you can.");
   });
 
   document.getElementById("walkReviewTable")?.addEventListener("change", async (e) => {
@@ -1487,7 +1487,7 @@ async function confirmDeleteBar(bar, barsCount) {
   const label = bar.name?.trim() || "Unnamed bar";
   const onlyBar = barsCount <= 1;
   const msg = onlyBar
-    ? `Delete "${label}"? This is your only bar — a fresh starter bar will be created.`
+    ? `Delete "${label}"? This is your only bar - a fresh starter bar will be created.`
     : `Delete "${label}"? This removes its stations and inventory map. This cannot be undone.`;
   return window.confirm(msg);
 }
@@ -1496,7 +1496,7 @@ function renderBarsList(containerId, bars, activeId, { onSelect, onSetup, onDele
   const el = document.getElementById(containerId);
   if (!el) return;
   if (!bars.length) {
-    el.innerHTML = `<p class="bars-empty">No bars yet — name your first one below.</p>`;
+    el.innerHTML = `<p class="bars-empty">No bars yet - name your first one below.</p>`;
     return;
   }
   el.innerHTML = bars
@@ -1683,7 +1683,7 @@ function normalizeCountName(s) {
   return (s || "").toLowerCase().replace(/[''`´]/g, "'").trim();
 }
 
-// V1.5 Phase 1 — Weight support helpers (accuracy boost, software equivalent to Bluetooth scale)
+// V1.5 Phase 1 - Weight support helpers (accuracy boost, software equivalent to Bluetooth scale)
 let BOTTLE_WEIGHTS = null; // loaded map name -> {full_oz, empty_oz, size}
 
 async function loadBottleWeights() {
@@ -1862,7 +1862,7 @@ function parseCountText(rawText) {
 }
 
 const COUNT_MATCH_MIN_SCORE = 85;
-/** Minor misses are OK — finish unlocks at this many unresolved gaps or fewer. */
+/** Minor misses are OK - finish unlocks at this many unresolved gaps or fewer. */
 const COUNT_GAP_TOLERANCE = 2;
 const WALK_SINGLE_BAR_WARN_BOTTLES = 95;
 let countDismissedSurpriseKeys = new Set();
@@ -1885,7 +1885,7 @@ function buildMissingFromCountCoaching(bottle) {
   const otherStations = [...new Set(others.map((b) => b.stationName))];
   const otherList = otherStations.join(otherStations.length > 1 ? ", " : "");
   const here = bottle.stationName || "this station";
-  return `${bottle.name} was also found on ${otherList} — did you mean the ${here} version?`;
+  return `${bottle.name} was also found on ${otherList} - did you mean the ${here} version?`;
 }
 
 function findCountBottleMatchScored(spokenName, stationLabel) {
@@ -1974,7 +1974,7 @@ function reconcileCountToMap(parsedEntries) {
       surprises.push({
         entry,
         reason: "no_level",
-        message: `We heard "${entry.name}" but no level — say the tenths or "full".`,
+        message: `We heard "${entry.name}" but no level - say the tenths or "full".`,
       });
       continue;
     }
@@ -1983,7 +1983,7 @@ function reconcileCountToMap(parsedEntries) {
       surprises.push({
         entry,
         reason: "not_on_map",
-        message: `"${entry.name}" at ${entry.level} — not on your approved map. Shelf changed? Reconcile the map first.`,
+        message: `"${entry.name}" at ${entry.level} - not on your approved map. Shelf changed? Reconcile the map first.`,
       });
       continue;
     }
@@ -1994,7 +1994,7 @@ function reconcileCountToMap(parsedEntries) {
         entry,
         reason: "extra_on_shelf",
         similarTo: hit,
-        message: `Another "${entry.name}" at ${entry.level} — map only has one ${hit.name}. Possible new bottle; reconcile your map.`,
+        message: `Another "${entry.name}" at ${entry.level} - map only has one ${hit.name}. Possible new bottle; reconcile your map.`,
       });
       continue;
     }
@@ -2015,7 +2015,7 @@ function reconcileCountToMap(parsedEntries) {
     const coachingHint = buildMissingFromCountCoaching(b);
     notInCount.push({
       bottle: b,
-      message: `${b.name} — on your map but not in this count.`,
+      message: `${b.name} - on your map but not in this count.`,
       coachingHint,
     });
   }
@@ -2142,7 +2142,7 @@ function updateFirstCountDoneButton() {
     }
     if (navBtn) {
       navBtn.disabled = !enabled;
-      navBtn.textContent = enabled ? "Open admin →" : label;
+      navBtn.textContent = enabled ? "Open admin >" : label;
     }
     if (navHint && hint) navHint.textContent = hint;
     if (lead && leadText) lead.textContent = leadText;
@@ -2154,7 +2154,7 @@ function updateFirstCountDoneButton() {
     apply(
       "Process your count first",
       false,
-      "Paste count → Process → admin opens automatically.",
+      "Paste count > Process > admin opens automatically.",
       "Paste your count above, then click Process."
     );
     return;
@@ -2164,7 +2164,7 @@ function updateFirstCountDoneButton() {
     apply(
       "Process & open admin",
       true,
-      "Count pasted — click Process to finish.",
+      "Count pasted - click Process to finish.",
       "Click Process to match your count and open admin."
     );
     return;
@@ -2179,26 +2179,26 @@ function updateFirstCountDoneButton() {
         `Fix ${gaps} gap${gaps === 1 ? "" : "s"} first`,
         false,
         `Fix ${gaps} gap${gaps === 1 ? "" : "s"} in the table, then Process again.`,
-        `${matched} matched — fix gaps below, then click Open admin.`
+        `${matched} matched - fix gaps below, then click Open admin.`
       );
       return;
     }
     apply(
-      gaps > 0 ? `Open admin (${gaps} minor gap${gaps === 1 ? "" : "s"})` : "Open admin →",
+      gaps > 0 ? `Open admin (${gaps} minor gap${gaps === 1 ? "" : "s"})` : "Open admin >",
       true,
-      gaps > 0 ? `${gaps} minor gap${gaps === 1 ? "" : "s"} noted — open admin when ready.` : "Golden — click Open admin or Process again.",
+      gaps > 0 ? `${gaps} minor gap${gaps === 1 ? "" : "s"} noted - open admin when ready.` : "Golden - click Open admin or Process again.",
       gaps > 0
-        ? `${matched} matched · ${gaps} minor gap${gaps === 1 ? "" : "s"} — ready to lock.`
-        : `Golden — ${matched} matched. Click Open admin to lock your baseline.`
+        ? `${matched} matched · ${gaps} minor gap${gaps === 1 ? "" : "s"} - ready to lock.`
+        : `Golden - ${matched} matched. Click Open admin to lock your baseline.`
     );
     return;
   }
 
   apply(
-    "Open admin →",
+    "Open admin >",
     true,
-    "Golden — admin opens on Process automatically.",
-    `Golden — ${matched} matched. Click Open admin to lock your baseline.`
+    "Golden - admin opens on Process automatically.",
+    `Golden - ${matched} matched. Click Open admin to lock your baseline.`
   );
 }
 
@@ -2211,7 +2211,7 @@ async function runInventoryPipeline() {
   }
   if (lastCountReconcile?.hasIssues && !canFinishCount(lastCountReconcile)) {
     const gaps = countUnresolvedGaps(lastCountReconcile);
-    const msg = `${gaps} gap${gaps === 1 ? "" : "s"} blocking admin — fix the table below (up to ${COUNT_GAP_TOLERANCE} minor misses OK). Wrong count file? Use the Twin Well test kit for a golden run.`;
+    const msg = `${gaps} gap${gaps === 1 ? "" : "s"} blocking admin - fix the table below (up to ${COUNT_GAP_TOLERANCE} minor misses OK). Wrong count file? Use the Twin Well test kit for a golden run.`;
     showCountBanner(msg, "error");
     setStatus(msg);
     document.getElementById("countReviewTable")?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -2228,8 +2228,8 @@ async function runInventoryPipeline() {
   if (tallyBtn) tallyBtn.disabled = true;
   if (finishBtn) finishBtn.disabled = true;
 
-  showProcessOverlay("Running inventory math…", "Locking your cycle — spreadsheets and analytics loading next.");
-  showCountBanner("Processing — opening admin panel…", "success");
+  showProcessOverlay("Running inventory math…", "Locking your cycle - spreadsheets and analytics loading next.");
+  showCountBanner("Processing - opening admin panel…", "success");
 
   try {
     await persistBar();
@@ -2239,8 +2239,8 @@ async function runInventoryPipeline() {
     const movers = result.week_over_week?.length || result.velocity?.length || 0;
     const msg =
       (result.cycles_total || 0) >= 2
-        ? `Cycle ${cycleNum} processed — ${skus} in stock · ${movers} week-over-week changes. Opening admin…`
-        : `Cycle ${cycleNum} locked — ${skus} SKUs · spreadsheets, analytics, and in-house inventory ready. Opening admin…`;
+        ? `Cycle ${cycleNum} processed - ${skus} in stock · ${movers} week-over-week changes. Opening admin…`
+        : `Cycle ${cycleNum} locked - ${skus} SKUs · spreadsheets, analytics, and in-house inventory ready. Opening admin…`;
     showProcessOverlay("Cycle locked", msg);
     setStatus(msg);
     window.setTimeout(() => {
@@ -2248,7 +2248,7 @@ async function runInventoryPipeline() {
     }, 500);
   } catch (e) {
     hideProcessOverlay();
-    const msg = e?.message || "Could not process cycle — try again.";
+    const msg = e?.message || "Could not process cycle - try again.";
     showCountBanner(msg, "error");
     setStatus(msg);
     window.alert(`Inventory cycle could not close:\n\n${msg}`);
@@ -2300,10 +2300,10 @@ function buildCountComparisonRows(report) {
       count_level: s.entry.level ?? "",
       action_required:
         status === "extra_on_shelf"
-          ? "Possible extra bottle on shelf — add to map in Review or fix count."
+          ? "Possible extra bottle on shelf - add to map in Review or fix count."
           : status === "no_level"
             ? "Say the level (tenths or full) and re-upload."
-            : "Not on your walk map — add in Review or fix the name.",
+            : "Not on your walk map - add in Review or fix the name.",
     });
   }
 
@@ -2311,7 +2311,7 @@ function buildCountComparisonRows(report) {
     const b = m.bottle;
     const action = m.coachingHint
       ? `${m.coachingHint} Re-count this station with the station name in your dictation.`
-      : "On map from walk — not in your count. Re-count or remove from map.";
+      : "On map from walk - not in your count. Re-count or remove from map.";
     rows.push({
       station: b.stationName || "",
       status: "missing_from_count",
@@ -2326,8 +2326,8 @@ function buildCountComparisonRows(report) {
 
   for (const m of report.matched || []) {
     const action = m.crossStation
-      ? `Matched across stations — verify ${m.bottle.stationName}.`
-      : "Levels line up — verify in table if needed.";
+      ? `Matched across stations - verify ${m.bottle.stationName}.`
+      : "Levels line up - verify in table if needed.";
     rows.push({
       station: m.entry.station || m.bottle.stationName || "",
       status: "matched",
@@ -2352,17 +2352,17 @@ function buildCountComparisonPlainText(report) {
   const rows = buildCountComparisonRows(report);
   const barName = barState.name?.trim() || "Your Bar";
   const lines = [
-    `${barName} — Map vs Count Comparison`,
+    `${barName} - Map vs Count Comparison`,
     report?.summary || "",
     "",
-    "Walk map (1st input) vs your count (2nd input) — line by line",
+    "Walk map (1st input) vs your count (2nd input) - line by line",
     "",
   ];
   for (const r of rows) {
     lines.push(
       `▸ ${r.station} [${r.status}]`,
-      `  Map:    ${r.map_product || "—"} ${r.map_size || ""} (par ${r.map_par_level ?? "—"})`,
-      `  Count:  ${r.count_heard || "—"} @ ${r.count_level !== "" ? r.count_level : "—"}`,
+      `  Map:    ${r.map_product || "-"} ${r.map_size || ""} (par ${r.map_par_level ?? "-"})`,
+      `  Count:  ${r.count_heard || "-"} @ ${r.count_level !== "" ? r.count_level : "-"}`,
       `  Action: ${r.action_required}`,
       ""
     );
@@ -2373,7 +2373,7 @@ function buildCountComparisonPlainText(report) {
 function countComparisonActionsHtml() {
   return `
     <div class="count-comparison-downloads">
-      <p class="box-label count-comparison-label">Map vs count — download line-by-line comparison</p>
+      <p class="box-label count-comparison-label">Map vs count - download line-by-line comparison</p>
       <p class="count-comparison-hint">Walk map (first input) compared to your count (second input). Take this to the floor to reconcile.</p>
       <div class="map-download-grid map-download-grid-audit">
         <button class="btn btn-ghost btn-sm count-export-btn" type="button" data-format="csv">Comparison (.csv)</button>
@@ -2403,7 +2403,7 @@ function buildCountComparisonPrintHtml(report) {
     </tr>`
     )
     .join("");
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${escapeHtml(barName)} — Count Comparison</title>
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${escapeHtml(barName)} - Count Comparison</title>
 <style>
   body { font-family: Georgia, serif; margin: 20px; color: #111; font-size: 11px; }
   h1 { font-size: 1.2rem; }
@@ -2415,8 +2415,8 @@ function buildCountComparisonPrintHtml(report) {
   tr.status-missing_from_count td { background: #fff8f0; }
   tr.status-not_on_map td, tr.status-extra_on_shelf td { background: #fff0f0; }
 </style></head><body>
-  <h1>${escapeHtml(barName)} — Map vs Count</h1>
-  <p class="meta">${escapeHtml(report?.summary || "")}<br/>Walk map (setup) vs live count — reconcile gaps before locking baseline.</p>
+  <h1>${escapeHtml(barName)} - Map vs Count</h1>
+  <p class="meta">${escapeHtml(report?.summary || "")}<br/>Walk map (setup) vs live count - reconcile gaps before locking baseline.</p>
   <table>
     <thead><tr>
       <th>Station</th><th>Status</th><th>Map product</th><th>Size</th><th>Par</th>
@@ -2434,7 +2434,7 @@ async function downloadCountComparison(format, btn) {
   }
   const rows = buildCountComparisonRows(lastCountReconcile);
   if (!rows.length) {
-    setStatus("Nothing to export — check your count notes.");
+    setStatus("Nothing to export - check your count notes.");
     return false;
   }
   try {
@@ -2494,13 +2494,13 @@ function renderCountReconcileReport(report) {
     el.classList.remove("hidden");
     el.innerHTML = `
       <div class="count-reconcile-ok">
-        <strong>Golden — count matches your map.</strong>
-        <span>${escapeHtml(report.summary)} — review levels below, then lock your baseline.</span>
+        <strong>Golden - count matches your map.</strong>
+        <span>${escapeHtml(report.summary)} - review levels below, then lock your baseline.</span>
       </div>
       <div class="coaching-reconcile-trio coaching-reconcile-trio--ok">
         <div class="coaching-reconcile-col">
           <p class="coaching-reconcile-label">What we have</p>
-          <p>Your approved walk map — names, stations, sizes.</p>
+          <p>Your approved walk map - names, stations, sizes.</p>
         </div>
         <div class="coaching-reconcile-col">
           <p class="coaching-reconcile-label">What you gave us</p>
@@ -2523,12 +2523,12 @@ function renderCountReconcileReport(report) {
 
   let html = `
     <div class="count-reconcile-alert">
-      <p class="count-reconcile-head"><strong>Fix gaps below — then finish</strong></p>
+      <p class="count-reconcile-head"><strong>Fix gaps below - then finish</strong></p>
       ${diagnosis ? `<p class="count-diagnosis-banner">${escapeHtml(diagnosis)}</p>` : ""}
       <div class="coaching-reconcile-trio">
         <div class="coaching-reconcile-col">
           <p class="coaching-reconcile-label">What we have</p>
-          <p>Approved map: <strong>${mapTotal} bottles</strong> across your stations. This is Pass 1 — your contract.</p>
+          <p>Approved map: <strong>${mapTotal} bottles</strong> across your stations. This is Pass 1 - your contract.</p>
         </div>
         <div class="coaching-reconcile-col">
           <p class="coaching-reconcile-label">What you gave us</p>
@@ -2536,12 +2536,12 @@ function renderCountReconcileReport(report) {
         </div>
         <div class="coaching-reconcile-col coaching-reconcile-col--need">
           <p class="coaching-reconcile-label">What we need</p>
-          <p><strong>${actionCount} gap${actionCount === 1 ? "" : "s"}</strong> — use the <strong>Fix</strong> column in the table below. Up to ${COUNT_GAP_TOLERANCE} minor misses can stay and you can still finish.</p>
+          <p><strong>${actionCount} gap${actionCount === 1 ? "" : "s"}</strong> - use the <strong>Fix</strong> column in the table below. Up to ${COUNT_GAP_TOLERANCE} minor misses can stay and you can still finish.</p>
         </div>
       </div>
       <div class="count-reconcile-actions">
         <button type="button" class="btn btn-ghost btn-sm" id="btnRecountInline">Edit &amp; re-upload count</button>
-        <button type="button" class="btn btn-ghost btn-sm" id="btnGoReconcileMap">Open full map editor →</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnGoReconcileMap">Open full map editor ></button>
       </div>
       ${countComparisonActionsHtml()}
     </div>`;
@@ -2572,7 +2572,7 @@ function renderCountReconcileReport(report) {
       }
 
       if (bucket.missing.length) {
-        html += `<p class="count-reconcile-station-label">On your map — not in this count</p><ul class="count-reconcile-list">`;
+        html += `<p class="count-reconcile-station-label">On your map - not in this count</p><ul class="count-reconcile-list">`;
         for (const m of bucket.missing) {
           html += `<li class="count-reconcile-missing">${escapeHtml(m.message)}`;
           if (m.coachingHint) {
@@ -2584,7 +2584,7 @@ function renderCountReconcileReport(report) {
       }
 
       if (bucket.matched.length && !bucket.surprises.length && !bucket.missing.length) {
-        html += `<p class="count-reconcile-station-ok">✓ This station lines up — levels applied below.</p>`;
+        html += `<p class="count-reconcile-station-ok">✓ This station lines up - levels applied below.</p>`;
       }
 
       html += `</div>`;
@@ -2593,7 +2593,7 @@ function renderCountReconcileReport(report) {
   }
 
   html += `<p class="count-reconcile-foot">
-    <strong>Your move:</strong> Fix each row in the table — set a level, remove a bottle that's gone, or add one you missed.
+    <strong>Your move:</strong> Fix each row in the table - set a level, remove a bottle that's gone, or add one you missed.
     Up to ${COUNT_GAP_TOLERANCE} small gaps can remain when you finish.
   </p>`;
   el.classList.remove("hidden");
@@ -2731,7 +2731,7 @@ function parseCountNotes(text) {
 
 function setCountView(parsed) {
   countParsed = parsed;
-  // Keep count entry + Process button visible — hiding caused "dead button" reports.
+  // Keep count entry + Process button visible - hiding caused "dead button" reports.
   document.getElementById("countParsed")?.classList.toggle("hidden", !parsed);
   if (parsed) {
     updateCountSummary();
@@ -2749,14 +2749,14 @@ function updateCountSummary() {
   const r = lastCountReconcile;
 
   if (r && !r.hasIssues && (r.matched?.length || 0) > 0) {
-    el.textContent = `Golden — ${r.matched.length} matched on your map. Levels are locked; finish when ready.`;
+    el.textContent = `Golden - ${r.matched.length} matched on your map. Levels are locked; finish when ready.`;
     return;
   }
 
   const matched = r?.matched?.length ?? bottles.filter((b) => b.count_matched).length;
   let text = `${matched} of ${total} bottles matched in your count`;
   if (r?.hasIssues) {
-    text += ` — ${r.surprises.length} surprise(s), ${r.notInCount.length} missing. Reconcile before finishing.`;
+    text += ` - ${r.surprises.length} surprise(s), ${r.notInCount.length} missing. Reconcile before finishing.`;
   } else if (!countParsed) {
     text += ". Paste notes, then click Process.";
   } else {
@@ -2787,7 +2787,7 @@ function countGapFixButtonsForSurprise(s, idx) {
     return `
       <div class="count-gap-fix-actions">
         <button type="button" class="btn btn-secondary btn-sm btn-count-fix" data-count-fix="add-surprise" data-surprise-idx="${idx}">Add to map</button>
-        <button type="button" class="btn btn-ghost btn-sm btn-count-fix" data-count-fix="dismiss-surprise" data-surprise-idx="${idx}">Misheard — ignore</button>
+        <button type="button" class="btn btn-ghost btn-sm btn-count-fix" data-count-fix="dismiss-surprise" data-surprise-idx="${idx}">Misheard - ignore</button>
       </div>`;
   }
   if (s.reason === "extra_on_shelf") {
@@ -2818,7 +2818,7 @@ function renderCountReview() {
   }
 
   if (!bottles.length) {
-    body.innerHTML = `<tr><td colspan="6" class="bottle-empty">No bottles on your map — go back to Review.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="6" class="bottle-empty">No bottles on your map - go back to Review.</td></tr>`;
     return;
   }
 
@@ -2835,9 +2835,9 @@ function renderCountReview() {
       rows.push(`
         <tr class="count-gap-row" data-gap="surprise" data-surprise-idx="${i}">
           <td>${escapeHtml(s.entry.name)}</td>
-          <td>${escapeHtml(s.entry.station || "—")}</td>
-          <td>—</td>
-          <td>${s.entry.level ?? "—"}</td>
+          <td>${escapeHtml(s.entry.station || "-")}</td>
+          <td>-</td>
+          <td>${s.entry.level ?? "-"}</td>
           <td>${status}</td>
           <td>${countGapFixButtonsForSurprise(s, i)}</td>
         </tr>`);
@@ -2849,13 +2849,13 @@ function renderCountReview() {
           <td>${escapeHtml(b.name)}</td>
           <td>${escapeHtml(b.stationName)}</td>
           <td>${b.par_level ?? 1}</td>
-          <td>—</td>
+          <td>-</td>
           <td><span class="report-flag">not in count</span></td>
           <td>${countGapFixButtonsForMissing(b)}</td>
         </tr>`);
     }
     if (!rows.length) {
-      body.innerHTML = `<tr><td colspan="6" class="bottle-empty">No gaps — you're good to finish.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="6" class="bottle-empty">No gaps - you're good to finish.</td></tr>`;
       return;
     }
     body.innerHTML = rows.join("");
@@ -2902,14 +2902,14 @@ async function processCountNotes(text, { closeCycle = true } = {}) {
 
   if (reconcile?.hasIssues && !canFinishCount(reconcile)) {
     const gaps = countUnresolvedGaps(reconcile);
-    const msg = `${gaps} gap${gaps === 1 ? "" : "s"} — ${reconcile.surprises.length} surprise(s), ${reconcile.notInCount.length} missing. Fix the table below, then Process again.`;
+    const msg = `${gaps} gap${gaps === 1 ? "" : "s"} - ${reconcile.surprises.length} surprise(s), ${reconcile.notInCount.length} missing. Fix the table below, then Process again.`;
     hideProcessOverlay();
     showCountBanner(msg, "error");
-    setStatus(`Matched ${matched} — ${reconcile.surprises.length} surprise(s), ${reconcile.notInCount.length} missing. Fix gaps, then Process again.`);
+    setStatus(`Matched ${matched} - ${reconcile.surprises.length} surprise(s), ${reconcile.notInCount.length} missing. Fix gaps, then Process again.`);
     document.getElementById("countReviewTable")?.scrollIntoView({ behavior: "smooth", block: "center" });
     updateCountStickyBar();
     window.alert(
-      `Count has ${gaps} gap${gaps === 1 ? "" : "s"} — admin cannot open yet.\n\n` +
+      `Count has ${gaps} gap${gaps === 1 ? "" : "s"} - admin cannot open yet.\n\n` +
         `Matched ${matched} of ${allBottles().length} bottles.\n` +
         `Fix gaps in the table below, or paste the correct count file from the test kit.\n\n` +
         `(Wrong walk + count combo is the #1 cause.)`
@@ -2919,15 +2919,15 @@ async function processCountNotes(text, { closeCycle = true } = {}) {
 
   if (!closeCycle) {
     if (matched) {
-      showCountBanner(`Matched ${matched} bottles — click Open admin when ready.`, "info");
-      setStatus(`Matched ${matched} bottles — click Process when ready to lock the cycle.`);
+      showCountBanner(`Matched ${matched} bottles - click Open admin when ready.`, "info");
+      setStatus(`Matched ${matched} bottles - click Process when ready to lock the cycle.`);
     }
     return { ok: true, preview: true };
   }
 
   if (matched) {
-    showCountBanner(`Golden — ${matched} matched. Running inventory math…`, "success");
-    setStatus(`Golden — ${matched} matched. Running inventory math…`);
+    showCountBanner(`Golden - ${matched} matched. Running inventory math…`, "success");
+    setStatus(`Golden - ${matched} matched. Running inventory math…`);
   }
   await runInventoryPipeline();
   return { ok: true };
@@ -3051,10 +3051,10 @@ async function processWalkNotes(text) {
   updateWalkSummary();
   updateWalkContinueButton();
   let statusMsg = totalAdded
-    ? `Parsed ${totalAdded} draft rows across ${barGroups.length} bar(s) — review names and sizes before you continue.`
-    : "Notes saved — add bottles manually, then review before you continue.";
+    ? `Parsed ${totalAdded} draft rows across ${barGroups.length} bar(s) - review names and sizes before you continue.`
+    : "Notes saved - add bottles manually, then review before you continue.";
   if (barGroups.length === 1 && totalAdded > WALK_SINGLE_BAR_WARN_BOTTLES) {
-    statusMsg += ` Warning: ${totalAdded} bottles on one bar — did you paste multiple bars into one walk? Split by bar marker (Bar one, Bar two…).`;
+    statusMsg += ` Warning: ${totalAdded} bottles on one bar - did you paste multiple bars into one walk? Split by bar marker (Bar one, Bar two…).`;
   }
   setStatus(statusMsg);
 }
@@ -3067,7 +3067,7 @@ async function readWalkFilesFromInput(fileList, { startBarIndex = 1 } = {}) {
     if (!isAcceptedWalkNotesFile(file)) {
       const ext = walkNotesExtension(file.name);
       if (ext === "pdf") {
-        throw new Error("PDF isn't supported — export as Markdown or .txt from your notes app.");
+        throw new Error("PDF isn't supported - export as Markdown or .txt from your notes app.");
       }
       throw new Error(`Unsupported file type. Use ${WALK_NOTES_ACCEPT_LABEL}.`);
     }
@@ -3100,7 +3100,7 @@ async function readCountFilesFromInput(fileList) {
     if (!isAcceptedWalkNotesFile(file)) {
       const ext = walkNotesExtension(file.name);
       if (ext === "pdf") {
-        throw new Error("PDF isn't supported — export as Markdown or .txt from your notes app.");
+        throw new Error("PDF isn't supported - export as Markdown or .txt from your notes app.");
       }
       throw new Error(`Unsupported file type. Use ${WALK_NOTES_ACCEPT_LABEL}.`);
     }
@@ -3121,9 +3121,9 @@ async function ingestCountFiles(fileList, mode = "append") {
   await handleProcessCountClick();
   const added = Array.from(fileList || []).length;
   if (added > 1) {
-    setStatus(`Added ${added} count files — merged and parsed. Upload more anytime.`);
+    setStatus(`Added ${added} count files - merged and parsed. Upload more anytime.`);
   } else if (existing) {
-    setStatus("Count file added — merged with your previous upload.");
+    setStatus("Count file added - merged with your previous upload.");
   }
 }
 
@@ -3138,9 +3138,9 @@ async function ingestWalkFiles(fileList, mode = "append") {
   await processWalkNotes(combined);
   const added = Array.from(fileList || []).length;
   if (added > 1) {
-    setStatus(`Added ${added} files — merged into your walk. Upload more anytime.`);
+    setStatus(`Added ${added} files - merged into your walk. Upload more anytime.`);
   } else if (existing) {
-    setStatus("File added — merged with your previous upload.");
+    setStatus("File added - merged with your previous upload.");
   }
 }
 
@@ -3162,7 +3162,7 @@ function scheduleCountParse() {
   countParseTimer = window.setTimeout(() => {
     const text = document.getElementById("countNotes")?.value?.trim() || "";
     if (text.length < 12) return;
-    setStatus("Count ready — click Process & open admin when you're set.");
+    setStatus("Count ready - click Process & open admin when you're set.");
     updateCountStickyBar();
   }, 400);
 }
@@ -3186,18 +3186,18 @@ function updateCountStickyBar() {
   }
   if (lastCountReconcile?.hasIssues && !canFinishCount(lastCountReconcile)) {
     const gaps = countUnresolvedGaps(lastCountReconcile);
-    hint.textContent = `${gaps} gap${gaps === 1 ? "" : "s"} blocking — fix the table or use the matching count file from the test kit.`;
+    hint.textContent = `${gaps} gap${gaps === 1 ? "" : "s"} blocking - fix the table or use the matching count file from the test kit.`;
     stickyBtn.disabled = false;
     stickyBtn.textContent = `Process blocked (${gaps} gaps)`;
     return;
   }
   if (countParsed) {
-    hint.textContent = "Golden match — Process locks your cycle and opens admin.";
+    hint.textContent = "Golden match - Process locks your cycle and opens admin.";
     stickyBtn.disabled = false;
-    stickyBtn.textContent = "Process & open admin →";
+    stickyBtn.textContent = "Process & open admin >";
     return;
   }
-  hint.textContent = "Count pasted — click Process to match against your map.";
+  hint.textContent = "Count pasted - click Process to match against your map.";
   stickyBtn.disabled = false;
   stickyBtn.textContent = "Process & open admin";
 }
@@ -3237,7 +3237,7 @@ async function handleProcessCountClick() {
     }
   } catch (e) {
     hideProcessOverlay();
-    const msg = e?.message || "Process failed — try again.";
+    const msg = e?.message || "Process failed - try again.";
     showCountBanner(msg, "error");
     setStatus(msg);
     window.alert(`Process could not finish:\n\n${msg}`);
@@ -3296,7 +3296,7 @@ function updateReconcileBarRenameStepper() {
   if (prev) prev.disabled = reconcileRenameIndex === 0;
   if (next) {
     next.textContent =
-      reconcileRenameIndex >= total - 1 ? "All bars named ✓" : "Next bar →";
+      reconcileRenameIndex >= total - 1 ? "All bars named ✓" : "Next bar >";
   }
 
   if (dots) {
@@ -3335,7 +3335,7 @@ function renderReconcileBarRename(bars) {
   }
 
   if (hint) {
-    hint.textContent = `Your walk created ${rows.length} bars — name each one before you continue. Use Next bar to step through.`;
+    hint.textContent = `Your walk created ${rows.length} bars - name each one before you continue. Use Next bar to step through.`;
   }
 
   reconcileRenameBars = rows.map((b, i) => {
@@ -3420,8 +3420,8 @@ function renderStationList() {
       return `
         <div class="station-card" data-station-id="${station.id}">
           <div class="station-reorder">
-            <button type="button" class="reorder-btn" data-move-up="${station.id}" ${i === 0 ? "disabled" : ""} aria-label="Move up">▲</button>
-            <button type="button" class="reorder-btn" data-move-down="${station.id}" ${i === stations.length - 1 ? "disabled" : ""} aria-label="Move down">▼</button>
+            <button type="button" class="reorder-btn" data-move-up="${station.id}" ${i === 0 ? "disabled" : ""} aria-label="Move up">^</button>
+            <button type="button" class="reorder-btn" data-move-down="${station.id}" ${i === stations.length - 1 ? "disabled" : ""} aria-label="Move down">v</button>
           </div>
           <div class="station-card-body">${nameCell}</div>
           <span class="station-badge ${stationBadgeClass(station.type)}">${stationBadgeLabel(station.type)}</span>
@@ -3511,7 +3511,7 @@ function addStation() {
 
 /* ── Walk parser: size-delimited segmentation ─────────────────────────────────
  * In a bar-walk dictation each bottle entry ENDS with its size ("Tito's 750",
- * "Ketel One liter"). Sizes are the delimiters — not commas or periods, which
+ * "Ketel One liter"). Sizes are the delimiters - not commas or periods, which
  * dictation rarely produces. Station phrases ("well two", "row three",
  * "back bar shelf") mark where the walker moved and group what follows.
  *
@@ -3527,7 +3527,7 @@ function stripAccents(s) {
 }
 
 /**
- * Map common Mexican-Spanish bar-walk / count structure words → English
+ * Map common Mexican-Spanish bar-walk / count structure words > English
  * equivalents the existing regex parser already understands.
  * Multi-word phrases first; then singles. Input should already be lowercased.
  */
@@ -3545,7 +3545,7 @@ function applySpanishStructureSynonyms(t) {
   s = s.replace(/\brefrigerador\s+de\s+cerveza\b/g, " beer cooler ");
   s = s.replace(/\bnevera\s+de\s+vino\b/g, " wine cooler ");
   s = s.replace(/\bcooler\s+de\s+vino\b/g, " wine cooler ");
-  // Fine-dining champagne coolers (often 2–3 physical units)
+  // Fine-dining champagne coolers (often 2-3 physical units)
   s = s.replace(/\bnevera\s+de\s+champan\b/g, " champagne cooler ");
   s = s.replace(/\bnevera\s+de\s+champagne\b/g, " champagne cooler ");
   s = s.replace(/\bcooler\s+de\s+champan\b/g, " champagne cooler ");
@@ -3604,7 +3604,7 @@ function applySpanishStructureSynonyms(t) {
   s = s.replace(/\barriva\b/g, " top ");
   s = s.replace(/\babajo\b/g, " bottom ");
 
-  // Spanish number words → English
+  // Spanish number words > English
   s = s.replace(/\buno\b|\buna\b/g, " one ");
   s = s.replace(/\bdos\b/g, " two ");
   s = s.replace(/\btres\b/g, " three ");
@@ -3652,7 +3652,7 @@ function walkNormalizeText(text) {
   t = t.replace(/\b75[43]\b/g, "750"); // "750" + stray syllable collisions
   t = t.replace(/\b7\/5[43]\b/g, "750");
   t = t.replace(/\b(\d{1,4})750\b/g, "$1 750"); // "666750" glued numbers
-  t = t.replace(/\brow\s+(\d)\/(\d)\b/g, "row $1"); // "row 2/2" → row 2
+  t = t.replace(/\brow\s+(\d)\/(\d)\b/g, "row $1"); // "row 2/2" > row 2
   t = t.replace(/\b(\d)\/(\d)\b/g, " $1/$2 "); // keep fractions as tokens
   return t;
 }
@@ -3740,7 +3740,7 @@ function walkMatchQuantity(words, i) {
   const w = words[i];
   const next = (words[i + 1] || "").replace(/[.,]/g, "");
   const num = WALK_WORD_NUMS[w] ?? (/^\d{1,2}$/.test(w) ? w : null);
-  // "bottles"/"bottle" already include Spanish via walkNormalizeText (botella→bottle)
+  // "bottles"/"bottle" already include Spanish via walkNormalizeText (botella>bottle)
   if (num && (next === "bottles" || next === "bottle" || next === "botellas" || next === "botella")) {
     return { qty: parseInt(num, 10), consumed: 2 };
   }
@@ -3849,8 +3849,8 @@ function parseWalkText(rawText) {
       const defaultSize = isBeerStation ? "12oz" : "750ml";
       const flag =
         name.split(" ").length <= 8
-          ? "no size heard — verify"
-          : "could not split — edit this one";
+          ? "no size heard - verify"
+          : "could not split - edit this one";
       mkEntry(name, defaultSize, false, [flag]);
     }
     buf = [];
@@ -3891,7 +3891,7 @@ function parseWalkText(rawText) {
     if (size) {
       const name = walkCleanName(buf.join(" "));
       if (name) {
-        const flags = name.split(" ").length > 6 ? ["long name — may be two bottles"] : [];
+        const flags = name.split(" ").length > 6 ? ["long name - may be two bottles"] : [];
         const entry = mkEntry(name, size, true, flags);
         const after = words.slice(i + 1);
         const packQty = after.length >= 2 ? walkMatchQuantity(after, 0) : null;
@@ -3902,7 +3902,7 @@ function parseWalkText(rawText) {
           i += 1;
         }
       } else if (entries.length) {
-        entries[entries.length - 1].flags.push("extra size heard nearby — check size");
+        entries[entries.length - 1].flags.push("extra size heard nearby - check size");
         i += 1;
       } else {
         i += 1;
@@ -4247,14 +4247,14 @@ function setMapToolkitOpen(open, triggerId = mapToolkitTriggerId) {
 
 function buildMapPlainText() {
   const barName = barState.name?.trim() || "Your Bar";
-  const lines = [`${barName} — inventory map`, ""];
+  const lines = [`${barName} - inventory map`, ""];
   for (const s of sortedStations().filter((st) => (st.bottles || []).length)) {
     lines.push(`▸ ${s.name}`);
     for (const b of s.bottles || []) {
       lines.push(`  ${b.name} · ${b.size || "750ml"}`);
     }
-    lines.push("  _ missed entry — speak or write");
-    lines.push("  _ missed entry — speak or write");
+    lines.push("  _ missed entry - speak or write");
+    lines.push("  _ missed entry - speak or write");
     lines.push("");
   }
   return lines.join("\n").trim();
@@ -4316,16 +4316,16 @@ async function copyMapToClipboard() {
   await persistBar();
   const text = buildMapPlainText();
   if (!text.trim()) {
-    setStatus("Nothing on your map yet — add bottles first.");
+    setStatus("Nothing on your map yet - add bottles first.");
     return false;
   }
   const ok = await copyTextToClipboard(text);
   const btn = document.getElementById("btnMapCopy");
   if (ok) {
-    showMapToolkitFeedback("✓ Copied — paste into Notes on your phone.", btn, "✓ Copied to clipboard");
+    showMapToolkitFeedback("✓ Copied - paste into Notes on your phone.", btn, "✓ Copied to clipboard");
     return true;
   }
-  setStatus("Could not copy — select and copy from the digital view below.");
+  setStatus("Could not copy - select and copy from the digital view below.");
   return false;
 }
 
@@ -4334,7 +4334,7 @@ function renderMapDigitalView() {
   if (!el) return;
   const stations = sortedStations().filter((s) => (s.bottles || []).length);
   if (!stations.length) {
-    el.innerHTML = `<p class="map-digital-blank">No bottles on your map yet — add products above, then come back here.</p>`;
+    el.innerHTML = `<p class="map-digital-blank">No bottles on your map yet - add products above, then come back here.</p>`;
     return;
   }
   el.innerHTML = stations
@@ -4352,7 +4352,7 @@ function renderMapDigitalView() {
       const blanks = [1, 2]
         .map(
           () =>
-            `<div class="map-digital-blank">Missed entry — speak it here, add in editor when back</div>`
+            `<div class="map-digital-blank">Missed entry - speak it here, add in editor when back</div>`
         )
         .join("");
       return `
@@ -4382,7 +4382,7 @@ function buildMapPrintHtml() {
       const adds = [1, 2, 3]
         .map(
           (n) =>
-            `<tr class="add-row"><td>Missed entry ${n} — speak or write:</td><td class="blank"></td><td class="blank"></td><td class="blank"></td></tr>`
+            `<tr class="add-row"><td>Missed entry ${n} - speak or write:</td><td class="blank"></td><td class="blank"></td><td class="blank"></td></tr>`
         )
         .join("");
       return `
@@ -4396,7 +4396,7 @@ function buildMapPrintHtml() {
     })
     .join("");
 
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${escapeHtml(barName)} — Walk Sheet</title>
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${escapeHtml(barName)} - Walk Sheet</title>
 <style>
   * { box-sizing: border-box; }
   body { font-family: Georgia, serif; margin: 24px; color: #111; }
@@ -4412,7 +4412,7 @@ function buildMapPrintHtml() {
   tr.add-row td { font-style: italic; color: #555; }
   @media print { body { margin: 12px; } }
 </style></head><body>
-  <h1>${escapeHtml(barName)} — Inventory Walk Sheet</h1>
+  <h1>${escapeHtml(barName)} - Inventory Walk Sheet</h1>
   <p class="lead">Hand this to your barback. Walk station by station. Write levels in tenths. Use blank and ADD rows for bottles you find on the shelf.</p>
   ${stationBlocks || "<p>No bottles mapped yet.</p>"}
 </body></html>`;
@@ -4422,7 +4422,7 @@ function printMapSheet() {
   const html = buildMapPrintHtml();
   const win = window.open("", "_blank");
   if (!win) {
-    setStatus("Allow pop-ups to print — then choose Save as PDF or your printer.");
+    setStatus("Allow pop-ups to print - then choose Save as PDF or your printer.");
     return false;
   }
   win.document.open();
@@ -4433,7 +4433,7 @@ function printMapSheet() {
     try {
       win.print();
     } catch {
-      setStatus("Print window opened — use File → Print or Save as PDF.");
+      setStatus("Print window opened - use File > Print or Save as PDF.");
     }
   };
   win.addEventListener("load", triggerPrint);
@@ -4485,7 +4485,7 @@ function renderReviewEditor() {
 
   let rows = "";
   if (!bottles.length) {
-    rows = `<tr><td colspan="5" class="bottle-empty">No bottles yet — use + Add bottle below.</td></tr>`;
+    rows = `<tr><td colspan="5" class="bottle-empty">No bottles yet - use + Add bottle below.</td></tr>`;
   } else {
     rows = bottles
       .map(
@@ -4503,7 +4503,7 @@ function renderReviewEditor() {
 
   el.innerHTML = `
     <div class="review-editor-toolbar">
-      <p class="review-editor-hint"><strong>${bottles.length}</strong> bottles — edit names, move stations, change sizes, or delete rows. Saves automatically.</p>
+      <p class="review-editor-hint"><strong>${bottles.length}</strong> bottles - edit names, move stations, change sizes, or delete rows. Saves automatically.</p>
       <button type="button" class="btn btn-ghost btn-sm" id="btnReviewAddBottle">+ Add bottle</button>
     </div>
     <div class="walk-review-table-wrap review-editor-table-wrap">
@@ -4581,7 +4581,7 @@ function bindReviewEditorListeners() {
     }
     const hint = document.querySelector(".review-editor-hint");
     if (hint) {
-      hint.innerHTML = `<strong>${bottleCount()}</strong> bottles — edit names, move stations, change sizes, or delete rows. Saves automatically.`;
+      hint.innerHTML = `<strong>${bottleCount()}</strong> bottles - edit names, move stations, change sizes, or delete rows. Saves automatically.`;
     }
   });
 
@@ -4635,7 +4635,7 @@ async function runReconciliation({ quiet = false } = {}) {
   if (rb) rb.textContent = "Re-run reconciliation";
   setReconcileNextEnabled(true);
   if (!quiet) {
-    setStatus("Report ready — audit below, then Print / Download MAP for CSV, Excel, or XML.");
+    setStatus("Report ready - audit below, then Print / Download MAP for CSV, Excel, or XML.");
   }
   return result;
 }
@@ -4660,7 +4660,7 @@ async function initReconcileStep(data) {
   }
   try {
     await runReconciliation({ quiet: true });
-    setStatus("Reconciliation complete — audit your map below, then continue.");
+    setStatus("Reconciliation complete - audit your map below, then continue.");
   } catch (e) {
     renderReconcilePreview();
     setStatus(e.message);
@@ -4834,7 +4834,7 @@ async function initSetup() {
     const provider = document.getElementById("welcomeAiProvider")?.value;
     const key = document.getElementById("welcomeApiKey")?.value?.trim();
     if (!provider || !key) {
-      setStatus("Select a provider and paste an API key — or use Skip / Begin without AI.");
+      setStatus("Select a provider and paste an API key - or use Skip / Begin without AI.");
       return;
     }
     const res = await OSB.saveConfig({ ai_provider: provider, ai_api_key: key });
@@ -4873,7 +4873,7 @@ async function initSetup() {
     if (!(await confirmDeleteBar(bar, allBars.length || 1))) return;
     try {
       await OSB.deleteBar(barState.id);
-      setStatus(allBars.length <= 1 ? "Bar deleted — fresh starter created." : "Bar deleted.");
+      setStatus(allBars.length <= 1 ? "Bar deleted - fresh starter created." : "Bar deleted.");
       await initSetup();
     } catch (e) {
       setStatus(e.message);
@@ -4891,7 +4891,7 @@ async function initSetup() {
       allBars = data.bars || [];
       renderBuildBarTabs(allBars, barState.id);
       renderStationList();
-      setStatus(`Bar ${nextNum} created — add stations or return to the walk step.`);
+      setStatus(`Bar ${nextNum} created - add stations or return to the walk step.`);
     } catch (e) {
       setStatus(e.message);
     }
@@ -4917,7 +4917,7 @@ async function initSetup() {
 
   document.getElementById("btnBuildContinue")?.addEventListener("click", async () => {
     if (sortedStations().length === 0) {
-      setStatus("Your walk should have created at least one station — add one if needed.");
+      setStatus("Your walk should have created at least one station - add one if needed.");
       return;
     }
     const name = barState.name?.trim() || defaultBarLabel(barState.id);
@@ -4970,7 +4970,7 @@ async function initSetup() {
     try {
       await ingestWalkFiles(files, walkFileUploadMode);
     } catch (err) {
-      setStatus(err.message || `Could not read that file — try ${WALK_NOTES_ACCEPT_LABEL}.`);
+      setStatus(err.message || `Could not read that file - try ${WALK_NOTES_ACCEPT_LABEL}.`);
     }
     e.target.value = "";
     walkFileUploadMode = "append";
@@ -5002,8 +5002,8 @@ async function initSetup() {
       if (remaining && scrollToFirstUnverifiedWalkRow()) {
         setStatus(
           remaining === 1
-            ? "1 row still needs the OK checkbox — we scrolled to it. Or use “I've checked every size” / Continue with defaults."
-            : `${remaining} rows still need the OK checkbox — we scrolled to the first one.`
+            ? "1 row still needs the OK checkbox - we scrolled to it. Or use “I've checked every size” / Continue with defaults."
+            : `${remaining} rows still need the OK checkbox - we scrolled to the first one.`
         );
       } else {
         setStatus("Upload or paste notes, or add bottles manually, then review before continuing.");
@@ -5097,7 +5097,7 @@ async function initSetup() {
     await persistBar();
     const btn = document.getElementById("btnMapPrint");
     if (printMapSheet()) {
-      showMapToolkitFeedback("Print dialog opening — choose printer or Save as PDF.", btn, "Opening print…");
+      showMapToolkitFeedback("Print dialog opening - choose printer or Save as PDF.", btn, "Opening print…");
     }
   });
 
@@ -5114,7 +5114,7 @@ async function initSetup() {
     toggleReviewAddBox(true);
     document.getElementById("reviewAddName")?.focus();
     document.getElementById("reviewAddBox")?.scrollIntoView({ behavior: "smooth", block: "center" });
-    setStatus("Add a missed product — it lands in the map and every download updates.");
+    setStatus("Add a missed product - it lands in the map and every download updates.");
   });
 
   document.getElementById("btnApproveMap")?.addEventListener("click", async () => {
@@ -5188,7 +5188,7 @@ async function initSetup() {
     try {
       await ingestCountFiles(files, countFileUploadMode);
     } catch (err) {
-      setStatus(err.message || `Could not read that file — try ${WALK_NOTES_ACCEPT_LABEL}.`);
+      setStatus(err.message || `Could not read that file - try ${WALK_NOTES_ACCEPT_LABEL}.`);
     }
     e.target.value = "";
     countFileUploadMode = "append";
@@ -5249,7 +5249,7 @@ async function initSetup() {
       const name = bottle?.name || "Bottle";
       if (!removeBottleFromMap(btn.dataset.bottle, btn.dataset.station)) return;
       await refreshCountReconcileAfterFix();
-      setStatus(`Removed ${name} from your map — not on shelf.`);
+      setStatus(`Removed ${name} from your map - not on shelf.`);
       return;
     }
 
@@ -5269,7 +5269,7 @@ async function initSetup() {
       if (!surprise) return;
       const added = addBottleFromCountSurprise(surprise);
       if (!added) {
-        setStatus("Could not add bottle — pick a station in the map editor.");
+        setStatus("Could not add bottle - pick a station in the map editor.");
         return;
       }
       await refreshCountReconcileAfterFix();
@@ -5304,7 +5304,7 @@ async function initSetup() {
         try {
           win.print();
         } catch {
-          setStatus("Print window opened — use File → Print or Save as PDF.");
+          setStatus("Print window opened - use File > Print or Save as PDF.");
         }
       }, 400);
       return;
@@ -5314,15 +5314,15 @@ async function initSetup() {
       const text = buildCountComparisonPlainText(lastCountReconcile);
       const ok = await copyTextToClipboard(text);
       const btn = document.getElementById("btnCountComparisonCopy");
-      if (ok) showMapToolkitFeedback("✓ Copied — paste into Notes or email.", btn, "✓ Copied");
-      else setStatus("Could not copy — download CSV instead.");
+      if (ok) showMapToolkitFeedback("✓ Copied - paste into Notes or email.", btn, "✓ Copied");
+      else setStatus("Could not copy - download CSV instead.");
       return;
     }
     if (!e.target.closest("#btnGoReconcileMap")) return;
     await persistBar();
     await OSB.advancePhase("map_review");
     await initSetup();
-    setStatus("Review your map — add surprises, remove what's gone, then come back to Count.");
+    setStatus("Review your map - add surprises, remove what's gone, then come back to Count.");
   });
 
   document.getElementById("btnFirstCountDone")?.addEventListener("click", () => finishFirstCount());
@@ -5334,10 +5334,10 @@ async function initSetup() {
 
 function apiStatusLabel(status) {
   const map = {
-    "not-started": "Off — program runs without it",
-    connected: "On — invoice photos enabled",
-    skipped: "Off — type numbers yourself",
-    "needs-key": "Off — paste key to enable photos",
+    "not-started": "Off - program runs without it",
+    connected: "On - invoice photos enabled",
+    skipped: "Off - type numbers yourself",
+    "needs-key": "Off - paste key to enable photos",
   };
   return map[status] || status || "Unknown";
 }
@@ -5350,9 +5350,9 @@ function refreshWelcomeAiPanel(cfg) {
   if (statusEl) {
     if (connected) {
       const prov = cfg?.ai_provider || "AI";
-      statusEl.innerHTML = `<span class="invoice-ai-ok">Connected (${escapeHtml(prov)})</span> — invoice photos will work in All inputs. You can still skip and add more keys later in Settings.`;
+      statusEl.innerHTML = `<span class="invoice-ai-ok">Connected (${escapeHtml(prov)})</span> - invoice photos will work in All inputs. You can still skip and add more keys later in Settings.`;
     } else if (cfg?.api_connection_status === "skipped") {
-      statusEl.textContent = "AI skipped — the full program still runs. Add a key later in Settings if you want invoice photos.";
+      statusEl.textContent = "AI skipped - the full program still runs. Add a key later in Settings if you want invoice photos.";
     } else {
       statusEl.textContent = "Leave the key blank to run the full program without AI. Connect only for invoice photos.";
     }
@@ -5395,12 +5395,12 @@ async function loadMetrics() {
 
   const s = m.summary || {};
   grid.innerHTML = `
-    <div class="metric metric-hero"><div class="num">${s.bottle_count ?? "—"}</div><div class="lbl">SKUs on map</div></div>
-    <div class="metric metric-hero"><div class="num">${s.station_count ?? "—"}</div><div class="lbl">Stations</div></div>
-    <div class="metric"><div class="num">${s.total_units ?? "—"}</div><div class="lbl">Units on hand</div></div>
-    <div class="metric${s.items_below_par > 0 ? " metric-warn" : ""}"><div class="num">${s.items_below_par ?? "—"}</div><div class="lbl">Below par</div></div>
-    <div class="metric metric-accent"><div class="num">${m.cycles_total ?? m.cycles_in_window ?? "—"}</div><div class="lbl">Cycles logged</div></div>
-    <div class="metric"><div class="num">${s.pos_uploads ?? "—"}</div><div class="lbl">POS drops</div></div>
+    <div class="metric metric-hero"><div class="num">${s.bottle_count ?? "-"}</div><div class="lbl">SKUs on map</div></div>
+    <div class="metric metric-hero"><div class="num">${s.station_count ?? "-"}</div><div class="lbl">Stations</div></div>
+    <div class="metric"><div class="num">${s.total_units ?? "-"}</div><div class="lbl">Units on hand</div></div>
+    <div class="metric${s.items_below_par > 0 ? " metric-warn" : ""}"><div class="num">${s.items_below_par ?? "-"}</div><div class="lbl">Below par</div></div>
+    <div class="metric metric-accent"><div class="num">${m.cycles_total ?? m.cycles_in_window ?? "-"}</div><div class="lbl">Cycles logged</div></div>
+    <div class="metric"><div class="num">${s.pos_uploads ?? "-"}</div><div class="lbl">POS drops</div></div>
   `;
 
   let analytics = null;
@@ -5414,7 +5414,7 @@ async function loadMetrics() {
   const bounds = document.getElementById("metricsBounds");
   if (bounds && m.bounds) {
     const last = m.last_inventory_at ? ` · Last count ${m.last_inventory_at.slice(0, 10)}` : "";
-    bounds.textContent = `Window: ${m.bounds.period_start} → ${m.bounds.period_end}${last}`;
+    bounds.textContent = `Window: ${m.bounds.period_start} > ${m.bounds.period_end}${last}`;
   }
 
   const notes = document.getElementById("metricsNotes");
@@ -5440,11 +5440,11 @@ function renderDashboardHero(metrics, analytics) {
   const cycleLabel = cycles ? `Cycle ${cycles}` : "Cycle 1";
   document.getElementById("dashboardHeroCycle")?.replaceChildren(document.createTextNode(cycleLabel));
   document.getElementById("dashboardHeroTitle")?.replaceChildren(
-    document.createTextNode(`${barName} — inventory live`)
+    document.createTextNode(`${barName} - inventory live`)
   );
   const sub = analytics?.last_count_at
     ? `Last count ${analytics.last_count_at.slice(0, 10)} · ${bottles} SKUs tracked`
-    : `${bottles} SKUs on your map — spreadsheets and analytics ready`;
+    : `${bottles} SKUs on your map - spreadsheets and analytics ready`;
   document.getElementById("dashboardHeroSub")?.replaceChildren(document.createTextNode(sub));
 
   const statsEl = document.getElementById("dashboardHeroStats");
@@ -5454,7 +5454,7 @@ function renderDashboardHero(metrics, analytics) {
       <div class="dashboard-hero-stat"><span class="dashboard-hero-stat-num">${bottles}</span><span class="dashboard-hero-stat-lbl">SKUs</span></div>
       <div class="dashboard-hero-stat"><span class="dashboard-hero-stat-num">$${value.toFixed(0)}</span><span class="dashboard-hero-stat-lbl">Est. value</span></div>
       <div class="dashboard-hero-stat"><span class="dashboard-hero-stat-num">${analytics?.below_par ?? metrics?.summary?.items_below_par ?? 0}</span><span class="dashboard-hero-stat-lbl">Below par</span></div>
-      <div class="dashboard-hero-stat"><span class="dashboard-hero-stat-num">${wow || "—"}</span><span class="dashboard-hero-stat-lbl">WoW changes</span></div>
+      <div class="dashboard-hero-stat"><span class="dashboard-hero-stat-num">${wow || "-"}</span><span class="dashboard-hero-stat-lbl">WoW changes</span></div>
     `;
   }
 
@@ -5463,7 +5463,7 @@ function renderDashboardHero(metrics, analytics) {
   if (recipes.length > 0) {
     const recipesNote = document.createElement("div");
     recipesNote.style.cssText = "margin-top:12px; font-size:0.85rem;";
-    recipesNote.innerHTML = `<a href="#" data-goto-recipes style="color:var(--copper-bright);">🍸 ${recipes.length} recipes • view costing →</a>`;
+    recipesNote.innerHTML = `<a href="#" data-goto-recipes style="color:var(--copper-bright);">🍸 ${recipes.length} recipes • view costing ></a>`;
     statsEl.parentNode.appendChild(recipesNote);
     recipesNote.querySelector("[data-goto-recipes]").onclick = (e) => {
       e.preventDefault();
@@ -5488,14 +5488,14 @@ function renderFirstWeekPanel(firstWeek) {
   }
   const s = firstWeek.summary || {};
   const cats = firstWeek.categories || {};
-  summary.textContent = `Cycle ${firstWeek.cycle_number || 1} locked ${(firstWeek.completed_at || "").slice(0, 10)} · ${firstWeek.period_start} → ${firstWeek.period_end}`;
+  summary.textContent = `Cycle ${firstWeek.cycle_number || 1} locked ${(firstWeek.completed_at || "").slice(0, 10)} · ${firstWeek.period_start} > ${firstWeek.period_end}`;
   grid.innerHTML = `
-    <div class="metric"><div class="num">${s.bottles ?? "—"}</div><div class="lbl">Bottles counted</div></div>
-    <div class="metric"><div class="num">${s.stations ?? "—"}</div><div class="lbl">Stations</div></div>
-    <div class="metric"><div class="num">${cats.liquor?.sku_count ?? "—"}</div><div class="lbl">Liquor SKUs</div></div>
-    <div class="metric"><div class="num">${cats.beer?.sku_count ?? "—"}</div><div class="lbl">Beer SKUs</div></div>
-    <div class="metric"><div class="num">${cats.wine?.sku_count ?? "—"}</div><div class="lbl">Wine SKUs</div></div>
-    <div class="metric"><div class="num">${s.below_par ?? "—"}</div><div class="lbl">Below par at lock</div></div>
+    <div class="metric"><div class="num">${s.bottles ?? "-"}</div><div class="lbl">Bottles counted</div></div>
+    <div class="metric"><div class="num">${s.stations ?? "-"}</div><div class="lbl">Stations</div></div>
+    <div class="metric"><div class="num">${cats.liquor?.sku_count ?? "-"}</div><div class="lbl">Liquor SKUs</div></div>
+    <div class="metric"><div class="num">${cats.beer?.sku_count ?? "-"}</div><div class="lbl">Beer SKUs</div></div>
+    <div class="metric"><div class="num">${cats.wine?.sku_count ?? "-"}</div><div class="lbl">Wine SKUs</div></div>
+    <div class="metric"><div class="num">${s.below_par ?? "-"}</div><div class="lbl">Below par at lock</div></div>
   `;
 }
 
@@ -5627,7 +5627,7 @@ function reportBuildStory(a) {
     health === "solid"
       ? "Looks like a clean house."
       : health === "watch"
-        ? "Mostly fine — a few bottles are calling."
+        ? "Mostly fine - a few bottles are calling."
         : "Time to restock before the next rush.";
 
   const bullets = [];
@@ -5636,21 +5636,21 @@ function reportBuildStory(a) {
   );
 
   if (below === 0) {
-    bullets.push(`Nothing is under par. Nice work — the map and the shelves agree.`);
+    bullets.push(`Nothing is under par. Nice work - the map and the shelves agree.`);
   } else if (below === 1) {
     bullets.push(`<strong>1 bottle</strong> is under par. Easy fix before service.`);
   } else {
     bullets.push(
       `<strong>${below} bottles</strong> are under par` +
-        (orders ? ` — <strong>${orders}</strong> need a real order, <strong>${watch}</strong> are just on watch.` : ".")
+        (orders ? ` - <strong>${orders}</strong> need a real order, <strong>${watch}</strong> are just on watch.` : ".")
     );
   }
 
   if (cost > 0) {
     let costLine = `Pour cost sits around <strong>${cost.toFixed(1)}%</strong>`;
-    if (cost <= 24) costLine += ` — that's in the healthy zone for most bars.`;
-    else if (cost <= 32) costLine += ` — a bit high; check free-pours and waste.`;
-    else costLine += ` — spicy. Look at over-pours, comps, and missing bottles.`;
+    if (cost <= 24) costLine += ` - that's in the healthy zone for most bars.`;
+    else if (cost <= 32) costLine += ` - a bit high; check free-pours and waste.`;
+    else costLine += ` - spicy. Look at over-pours, comps, and missing bottles.`;
     if (ideal != null) {
       costLine += ` Your recipes say ideal is about <strong>${ideal.toFixed(1)}%</strong>.`;
     }
@@ -5743,7 +5743,7 @@ function reportExportCsv(a) {
 
 function reportExportStoryText(a, story) {
   const lines = [
-    `OPEN SOURCE BARWARE — SHIFT REPORT`,
+    `OPEN SOURCE BARWARE - SHIFT REPORT`,
     `${a.bar_name || "Bar"} · ${story.healthLabel}`,
     `Generated ${new Date().toLocaleString()}`,
     ``,
@@ -5757,7 +5757,7 @@ function reportExportStoryText(a, story) {
     `Below par: ${a.below_par || 0} · Order now: ${a.par_status_counts?.order || 0} · Watch: ${a.par_status_counts?.watch || 0}`,
     `Restock estimate: ${reportMoney(a.need_value || 0)}`,
     ``,
-    `— Free & local. Your data never left this machine.`,
+    `- Free & local. Your data never left this machine.`,
   ];
   return lines.join("\n");
 }
@@ -5771,7 +5771,7 @@ async function loadAnalytics() {
       root.innerHTML = `
         <div class="panel panel--glass rpt-empty">
           <p class="rpt-empty-title">No story yet</p>
-          <p class="field-hint">Finish your first count (or load the demo map) and this page turns into a readable shift report — plain English first, full numbers when you want them.</p>
+          <p class="field-hint">Finish your first count (or load the demo map) and this page turns into a readable shift report - plain English first, full numbers when you want them.</p>
         </div>`;
       return;
     }
@@ -5780,7 +5780,7 @@ async function loadAnalytics() {
     const story = reportBuildStory(a);
     const lastCount = a.last_count_at
       ? new Date(a.last_count_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })
-      : "—";
+      : "-";
 
     const alerts = (a.variance_alerts || [])
       .slice(0, 12)
@@ -5805,7 +5805,7 @@ async function loadAnalytics() {
         (item) => `
       <span class="velocity-pill velocity-pill--${item.direction === "down" ? "down" : "up"}">
         ${escapeHtml(item.name)}
-        <strong>${item.direction === "down" ? "↓" : "↑"} ${Math.abs(item.change).toFixed(2)}</strong>
+        <strong>${item.direction === "down" ? "Down" : "Up"} ${Math.abs(item.change).toFixed(2)}</strong>
       </span>`
       )
       .join("");
@@ -5854,7 +5854,7 @@ async function loadAnalytics() {
             <td class="workbook-num">${Number(r.pos_sales || 0).toFixed(1)}</td>
             <td class="workbook-num">${Number(r.purchases || 0).toFixed(1)}</td>
             <td class="workbook-num">${Number(r.need || 0).toFixed(1)}</td>
-            <td class="workbook-num">${r.need_value ? reportMoney(r.need_value) : "—"}</td>
+            <td class="workbook-num">${r.need_value ? reportMoney(r.need_value) : "-"}</td>
           </tr>`
           )
           .join("")}</tbody></table>
@@ -5876,16 +5876,16 @@ async function loadAnalytics() {
           </tr>`
           )
           .join("")}</tbody></table></div>`
-      : `<p class="field-hint">No recipes yet. Open <strong>Recipes &amp; Costing</strong> from Home base — even three classics make the “ideal vs actual” story useful.</p>`;
+      : `<p class="field-hint">No recipes yet. Open <strong>Recipes &amp; Costing</strong> from Home base - even three classics make the “ideal vs actual” story useful.</p>`;
 
     const history = a.cycle_history || a.trend_data || [];
     const historyBlock = history.length
       ? `<div class="rpt-history">
           ${history
             .map((c, i) => {
-              const avg = c.avg_level != null ? Number(c.avg_level).toFixed(2) : "—";
-              const bp = c.below_par != null ? c.below_par : "—";
-              const items = c.items != null ? c.items : "—";
+              const avg = c.avg_level != null ? Number(c.avg_level).toFixed(2) : "-";
+              const bp = c.below_par != null ? c.below_par : "-";
+              const items = c.items != null ? c.items : "-";
               return `<div class="rpt-history-card">
                 <div class="rpt-history-num">#${c.cycle_number || history.length - i}</div>
                 <div class="rpt-history-date">${escapeHtml(c.date || c.full_date || "")}</div>
@@ -5953,7 +5953,7 @@ async function loadAnalytics() {
           <div class="rpt-score"><span class="rpt-score-num">${a.station_count || 0}</span><span class="rpt-score-lbl">Stations</span></div>
         </section>
 
-        <!-- LAYER 3: Tabs — depth without dumping it all at once -->
+        <!-- LAYER 3: Tabs - depth without dumping it all at once -->
         <div class="rpt-tabs" role="tablist" aria-label="Report sections">
           <button type="button" class="rpt-tab active" data-rpt-panel="glance">At a glance</button>
           <button type="button" class="rpt-tab" data-rpt-panel="stock">Stock &amp; orders</button>
@@ -5976,10 +5976,10 @@ async function loadAnalytics() {
               <div class="panel analytics-panel">
                 <h2>Pour cost gauge</h2>
                 ${costGaugeSvg(a.beverage_cost_pct || 0)}
-                <p class="field-hint">Green band ≈ 18–24%. This is a program average from bottle costs — not a tax form.</p>
+                <p class="field-hint">Green band ≈ 18-24%. This is a program average from bottle costs - not a tax form.</p>
                 ${
                   a.ideal_pour_cost_pct != null
-                    ? `<p class="field-hint">Recipe ideal (menu math): <strong>${a.ideal_pour_cost_pct.toFixed(1)}%</strong> — compare to the needle.</p>`
+                    ? `<p class="field-hint">Recipe ideal (menu math): <strong>${a.ideal_pour_cost_pct.toFixed(1)}%</strong> - compare to the needle.</p>`
                     : ""
                 }
               </div>
@@ -5989,7 +5989,7 @@ async function loadAnalytics() {
               </div>
               <div class="panel analytics-panel">
                 <h2>Needs attention</h2>
-                ${alerts || `<p class="field-hint analytics-ok">All clear — everything at or above par.</p>`}
+                ${alerts || `<p class="field-hint analytics-ok">All clear - everything at or above par.</p>`}
               </div>
               <div class="panel analytics-panel">
                 <h2>Movers</h2>
@@ -5997,7 +5997,7 @@ async function loadAnalytics() {
               </div>
               <div class="panel analytics-panel analytics-panel-wide">
                 <h2>Week over week</h2>
-                <p class="field-hint" style="margin-top:0;">What changed since the last Process — not sales, shelf levels.</p>
+                <p class="field-hint" style="margin-top:0;">What changed since the last Process - not sales, shelf levels.</p>
                 ${wowTable}
               </div>
             </div>
@@ -6010,7 +6010,7 @@ async function loadAnalytics() {
                   <h2 style="margin:0;">Stock &amp; what to order</h2>
                   <p class="field-hint" style="margin:4px 0 0;">Sorted so “Order” hits the top. Watch = half-empty vs PAR. OK = leave it alone.</p>
                 </div>
-                <button type="button" class="btn btn-primary btn-sm" data-rpt-go="smart-orders">Open Smart Orders → PO</button>
+                <button type="button" class="btn btn-primary btn-sm" data-rpt-go="smart-orders">Open Smart Orders > PO</button>
               </div>
               <div class="rpt-legend">
                 <span>${reportParBadge("order")} under half of PAR</span>
@@ -6039,7 +6039,7 @@ async function loadAnalytics() {
               </div>
               <div class="panel analytics-panel analytics-panel-wide">
                 <h2>Recipes &amp; menu math</h2>
-                <p class="field-hint" style="margin-top:0;">Cost per serve uses your bottle costs and pour sizes. Menu % = cost ÷ menu price. No cloud — just your numbers.</p>
+                <p class="field-hint" style="margin-top:0;">Cost per serve uses your bottle costs and pour sizes. Menu % = cost ÷ menu price. No cloud - just your numbers.</p>
                 ${recipeTable}
               </div>
             </div>
@@ -6087,7 +6087,7 @@ async function loadAnalytics() {
                           <td class="workbook-num">${Number(r.purchases || 0).toFixed(1)}</td>
                           <td class="workbook-num">${Number(r.net_movement || 0).toFixed(1)}</td>
                           <td class="workbook-num">${Number(r.adjusted_variance || 0).toFixed(2)}</td>
-                          <td class="workbook-num">${r.cost ? reportMoney(r.cost, 2) : "—"}</td>
+                          <td class="workbook-num">${r.cost ? reportMoney(r.cost, 2) : "-"}</td>
                           <td class="workbook-num">${reportMoney(r.line_value || 0)}</td>
                         </tr>`
                         )
@@ -6132,14 +6132,14 @@ async function loadAnalytics() {
     root.querySelector("#rptExportCsv")?.addEventListener("click", () => {
       reportExportCsv(a);
       const st = root.querySelector("#rptExportStatus");
-      if (st) st.textContent = "CSV downloaded — open it in Excel or Sheets.";
+      if (st) st.textContent = "CSV downloaded - open it in Excel or Sheets.";
     });
 
     root.querySelector("#rptCopyStory")?.addEventListener("click", async () => {
       const text = reportExportStoryText(a, story);
       const ok = await copyToClipboard(text);
       const st = root.querySelector("#rptExportStatus");
-      if (st) st.textContent = ok ? "Summary copied — paste anywhere." : "Copy failed — use Save .txt instead.";
+      if (st) st.textContent = ok ? "Summary copied - paste anywhere." : "Copy failed - use Save .txt instead.";
     });
 
     root.querySelector("#rptDownloadStory")?.addEventListener("click", () => {
@@ -6195,7 +6195,7 @@ function renderWorkbookStatCards(items) {
 
 function renderWorkbookSheet(sheet, data) {
   if (!data?.product_rows?.length) {
-    return `<p class="field-hint">No inventory data — finish your first count.</p>`;
+    return `<p class="field-hint">No inventory data - finish your first count.</p>`;
   }
 
   if (sheet === "dashboard") {
@@ -6224,9 +6224,9 @@ function renderWorkbookSheet(sheet, data) {
         escapeHtml(r.category),
         escapeHtml(r.station),
         escapeHtml(r.size),
-        r.cost ? `$${r.cost.toFixed(2)}` : "—",
-        r.pour_cost ? `$${r.pour_cost.toFixed(2)}` : "—",
-        r.cost_pct ? `${r.cost_pct.toFixed(1)}%` : "—",
+        r.cost ? `$${r.cost.toFixed(2)}` : "-",
+        r.pour_cost ? `$${r.pour_cost.toFixed(2)}` : "-",
+        r.cost_pct ? `${r.cost_pct.toFixed(1)}%` : "-",
       ])
     );
   }
@@ -6250,7 +6250,7 @@ function renderWorkbookSheet(sheet, data) {
       .join("");
     return `
       <div class="workbook-par-lead">
-        <p><strong>Set PARs across every SKU.</strong> This is the column your Excel system runs on — variance, below-par alerts, and next week's order list all pull from here.</p>
+        <p><strong>Set PARs across every SKU.</strong> This is the column your Excel system runs on - variance, below-par alerts, and next week's order list all pull from here.</p>
         <p class="field-hint">${data.product_rows.length} products · ${belowPar} below par right now</p>
       </div>
       <div class="workbook-table-wrap scroll-panel">
@@ -6258,7 +6258,7 @@ function renderWorkbookSheet(sheet, data) {
           <thead><tr><th>Station</th><th>Product</th><th>Size</th><th>Current</th><th>PAR</th><th>Status</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
-        <p class="workbook-row-count">${data.product_rows.length} rows — edit PAR, then Save</p>
+        <p class="workbook-row-count">${data.product_rows.length} rows - edit PAR, then Save</p>
       </div>
       <div class="workbook-par-actions">
         <button type="button" class="btn btn-primary" id="btnSaveWorkbookPars">Save PAR changes</button>
@@ -6272,7 +6272,7 @@ function renderWorkbookSheet(sheet, data) {
       return `<p class="field-hint workbook-empty">Need 2 processed counts to show week-over-week reconciliation.</p>`;
     }
     return `
-      <p class="workbook-sheet-lead">${rows.length} reconciliation rows — same math you get after Process.</p>
+      <p class="workbook-sheet-lead">${rows.length} reconciliation rows - same math you get after Process.</p>
       <div class="workbook-table-wrap scroll-panel">
         <table class="workbook-table review-table">
           <thead><tr><th>Product</th><th>Station</th><th>Previous</th><th>Current</th><th>Change</th></tr></thead>
@@ -6317,7 +6317,7 @@ function renderWorkbookSheet(sheet, data) {
         : varianceRows;
 
     if (!filtered.length) {
-      return `<p class="field-hint">All products at or above par — no orders needed.</p>`;
+      return `<p class="field-hint">All products at or above par - no orders needed.</p>`;
     }
 
     if (sheet === "order-generator") {
@@ -6487,7 +6487,7 @@ function readLogoFile(file) {
   return new Promise((resolve, reject) => {
     if (!file) return resolve("");
     if (file.size > 250_000) {
-      reject(new Error("Image too large — use a file under 250KB."));
+      reject(new Error("Image too large - use a file under 250KB."));
       return;
     }
     const reader = new FileReader();
@@ -6518,7 +6518,7 @@ async function loadInHouse() {
   if (!table) return;
   const items = data.items || [];
   if (!items.length) {
-    table.innerHTML = `<p class="field-hint">No inventory lines yet — finish your first count.</p>`;
+    table.innerHTML = `<p class="field-hint">No inventory lines yet - finish your first count.</p>`;
     return;
   }
   table.innerHTML = `
@@ -6554,9 +6554,9 @@ function refreshInvoiceAiStatus(cfg) {
   const connected = cfg?.api_connection_status === "connected" || cfg?.ai_api_key_set;
   if (connected) {
     const prov = cfg?.ai_provider || "AI";
-    el.innerHTML = `<span class="invoice-ai-ok">Optional AI on (${escapeHtml(prov)})</span> — invoice photos will be read. Text paste and typing still work without AI.`;
+    el.innerHTML = `<span class="invoice-ai-ok">Optional AI on (${escapeHtml(prov)})</span> - invoice photos will be read. Text paste and typing still work without AI.`;
   } else {
-    el.innerHTML = `Invoice photos need optional AI — <a href="#" data-goto="settings" class="invoice-ai-link">connect in Settings</a> or type/paste numbers yourself. The rest of the program runs without AI.`;
+    el.innerHTML = `Invoice photos need optional AI - <a href="#" data-goto="settings" class="invoice-ai-link">connect in Settings</a> or type/paste numbers yourself. The rest of the program runs without AI.`;
   }
 }
 
@@ -6575,8 +6575,8 @@ function renderInvoiceParsePreview(invoice) {
         <td><strong>${escapeHtml(ln.product || "")}</strong></td>
         <td>${escapeHtml(ln.size || "")}</td>
         <td class="workbook-num">${ln.qty ?? ""}</td>
-        <td class="workbook-num">${ln.unit_cost != null ? `$${Number(ln.unit_cost).toFixed(2)}` : "—"}</td>
-        <td class="workbook-num">${ln.extended != null ? `$${Number(ln.extended).toFixed(2)}` : "—"}</td>
+        <td class="workbook-num">${ln.unit_cost != null ? `$${Number(ln.unit_cost).toFixed(2)}` : "-"}</td>
+        <td class="workbook-num">${ln.extended != null ? `$${Number(ln.extended).toFixed(2)}` : "-"}</td>
       </tr>`
     )
     .join("");
@@ -6593,7 +6593,7 @@ function renderInvoiceParsePreview(invoice) {
       </table>
     </div>
     <div class="actions">
-      <button type="button" class="btn btn-primary" id="btnSaveParsedInvoice">Save to input log →</button>
+      <button type="button" class="btn btn-primary" id="btnSaveParsedInvoice">Save to input log ></button>
       <button type="button" class="btn btn-ghost" id="btnDiscardInvoiceParse">Discard</button>
     </div>`;
   document.getElementById("btnSaveParsedInvoice")?.addEventListener("click", savePendingInvoiceParse);
@@ -6647,7 +6647,7 @@ function renderPosParsePreview(lines) {
       return `<tr class="${i % 2 ? "workbook-row-alt" : ""}">
         <td><input type="text" class="pos-match-product" value="${escapeHtml(ln.product)}" data-idx="${i}" /></td>
         <td class="workbook-num">${ln.qty ?? ""}</td>
-        <td class="workbook-num">${ln.price != null ? `$${Number(ln.price).toFixed(2)}` : "—"}</td>
+        <td class="workbook-num">${ln.price != null ? `$${Number(ln.price).toFixed(2)}` : "-"}</td>
         <td>
           <select class="pos-match-select" data-idx="${i}">
             <option value="">-- ${matchName} --</option>
@@ -6670,7 +6670,7 @@ function renderPosParsePreview(lines) {
       </table>
     </div>
     <div class="actions">
-      <button type="button" class="btn btn-primary" id="btnSaveParsedPos">Save reviewed POS →</button>
+      <button type="button" class="btn btn-primary" id="btnSaveParsedPos">Save reviewed POS ></button>
       <button type="button" class="btn btn-ghost" id="btnDiscardPosParse">Discard</button>
     </div>`;
   document.getElementById("btnSaveParsedPos")?.addEventListener("click", savePendingPosParse);
@@ -6906,8 +6906,8 @@ async function refreshInputsCyclePanel() {
     if (badge) badge.textContent = cycles ? `Cycle ${next} input` : "First cycle input";
     status.textContent =
       cycles === 0
-        ? `${barName} — finish your first count from setup, then return here each week.`
-        : `${barName} — ${cycles} cycle${cycles === 1 ? "" : "s"} completed. Ready for cycle ${next}.`;
+        ? `${barName} - finish your first count from setup, then return here each week.`
+        : `${barName} - ${cycles} cycle${cycles === 1 ? "" : "s"} completed. Ready for cycle ${next}.`;
   } catch (e) {
     status.textContent = e.message || "Could not load cycle status.";
   }
@@ -6931,14 +6931,14 @@ async function loadInputsLog() {
   if (!entries.length) {
     const hint =
       inputsLogFilter === "invoice"
-        ? "No invoices staged yet — upload a vendor drop above."
+        ? "No invoices staged yet - upload a vendor drop above."
         : inputsLogFilter === "pos"
-          ? "No POS drops yet — upload a terminal receipt above."
+          ? "No POS drops yet - upload a terminal receipt above."
           : inputsLogFilter === "purchase"
-            ? "No purchases/receives logged yet — use Receive section above."
+            ? "No purchases/receives logged yet - use Receive section above."
             : inputsLogFilter === "po"
-              ? "No purchase orders logged yet — generate one from Smart Orders."
-              : "No inputs staged yet — add POS, invoices, orders, or start your next count above.";
+              ? "No purchase orders logged yet - generate one from Smart Orders."
+              : "No inputs staged yet - add POS, invoices, orders, or start your next count above.";
     list.innerHTML = `<p class="field-hint">${hint}</p>`;
     return;
   }
@@ -6957,7 +6957,7 @@ async function loadInputsLog() {
         // Show first few for preview
         const preview = lines.slice(0, 2).map(l => {
           const match = autoMatchProduct(l.product, bottles);
-          const matchStr = match ? ` → ${escapeHtml(match.name)}` : '';
+          const matchStr = match ? ` > ${escapeHtml(match.name)}` : '';
           return `${escapeHtml(l.product)} x${l.qty}${matchStr}`;
         }).join("; ");
         parsedNote += ` <span class="field-hint" style="display:block;">${preview}</span>`;
@@ -7069,7 +7069,7 @@ async function refreshHomeBars() {
       try {
         const res = await OSB.deleteBar(barId);
         setStatus(
-          res.replaced_with_fresh ? "Bar deleted — fresh starter created." : "Bar deleted.",
+          res.replaced_with_fresh ? "Bar deleted - fresh starter created." : "Bar deleted.",
           "settingsStatus"
         );
         await refreshHomeBars();
@@ -7295,7 +7295,7 @@ async function loadPeoplePanel() {
     document.getElementById("peoplePerms")?.classList.remove("hidden");
 
     list.innerHTML = users.map((u) => {
-      const venueName = bars.find((b) => b.id === u.venue_id)?.name || (u.role === "admin" ? "All venues" : "—");
+      const venueName = bars.find((b) => b.id === u.venue_id)?.name || (u.role === "admin" ? "All venues" : "-");
       return `<div class="people-row" data-user-id="${escapeHtml(u.id)}">
         <div>
           <strong>${escapeHtml(u.name)}</strong>
@@ -7315,7 +7315,7 @@ async function loadPeoplePanel() {
         if (!pin) return;
         try {
           await OSB.resetPersonPin(btn.dataset.resetPin, pin.trim());
-          setStatus("PIN reset — tell them the new 6 digits.", "peopleStatus");
+          setStatus("PIN reset - tell them the new 6 digits.", "peopleStatus");
         } catch (e) {
           setStatus(e.message, "peopleStatus");
         }
@@ -7595,11 +7595,11 @@ async function initHome() {
       });
       pendingInvoiceParse = res.invoice;
       if (!pendingInvoiceParse?.lines?.length) {
-        throw new Error("No line items found — try a clearer photo or paste the invoice text.");
+        throw new Error("No line items found - try a clearer photo or paste the invoice text.");
       }
       renderInvoiceParsePreview(pendingInvoiceParse);
       setStatus(
-        `Parsed ${pendingInvoiceParse.lines.length} lines (${pendingInvoiceParse.parse_source || "ok"}) — review below, then Save.`,
+        `Parsed ${pendingInvoiceParse.lines.length} lines (${pendingInvoiceParse.parse_source || "ok"}) - review below, then Save.`,
         statusEl
       );
     } catch (e) {
@@ -7609,7 +7609,7 @@ async function initHome() {
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.textContent = "Parse with AI →";
+        btn.textContent = "Parse with AI >";
       }
     }
   });
@@ -7639,7 +7639,7 @@ async function initHome() {
 
   document.getElementById("btnBeginNextInventory")?.addEventListener("click", async () => {
     const ok = window.confirm(
-      "Start your next weekly inventory?\n\nYou'll go to Count (step 5) to paste your new count. Your station map and PARs stay the same — only the count is new.\n\nClick OK to open the count screen."
+      "Start your next weekly inventory?\n\nYou'll go to Count (step 5) to paste your new count. Your station map and PARs stay the same - only the count is new.\n\nClick OK to open the count screen."
     );
     if (!ok) return;
     try {
@@ -7736,7 +7736,7 @@ async function initHome() {
       setStatus(e.message, "peopleStatus");
     }
   });
-  // Employee communications — inventory notes upload (Salle parity)
+  // Employee communications - inventory notes upload (Salle parity)
   window.__staffNotesFileName = "";
   document.getElementById("staffNotesFile")?.addEventListener("change", async (ev) => {
     const file = ev.target.files?.[0];
@@ -7764,9 +7764,9 @@ async function initHome() {
       if (ta) ta.value = content;
       window.__staffNotesFileName = file.name;
       if (hint) {
-        hint.textContent = `Loaded ${file.name} (${Math.round(file.size / 1024) || 1} KB) — review below, then save.`;
+        hint.textContent = `Loaded ${file.name} (${Math.round(file.size / 1024) || 1} KB) - review below, then save.`;
       }
-      setStatus(`Loaded ${file.name} — review and click Save inventory notes.`, "staffBoardStatus");
+      setStatus(`Loaded ${file.name} - review and click Save inventory notes.`, "staffBoardStatus");
     } catch {
       setStatus("Could not read that file.", "staffBoardStatus");
     }
@@ -7802,7 +7802,7 @@ async function initHome() {
       const hint = document.getElementById("staffFileHint");
       if (hint) hint.textContent = "";
       setStatus(
-        fileName ? `Uploaded ${fileName} — stays on this machine.` : "Inventory notes saved — stays on this machine.",
+        fileName ? `Uploaded ${fileName} - stays on this machine.` : "Inventory notes saved - stays on this machine.",
         "staffBoardStatus",
       );
       await loadStaffBoard();
@@ -7843,7 +7843,7 @@ async function initHome() {
       // simple reload of tables
       location.reload(); // quick for now; in full would re-render conditionally
     }
-    setStatus(enabled ? "Weighing mode enabled — weight fields will appear in counts." : "Weighing mode disabled (levels only).", "settingsStatus");
+    setStatus(enabled ? "Weighing mode enabled - weight fields will appear in counts." : "Weighing mode disabled (levels only).", "settingsStatus");
   });
 
   ["settBusinessName", "settBusinessAddress", "settPanelTitle"].forEach((id) => {
@@ -7895,7 +7895,7 @@ async function initHome() {
     }
     const fresh = await OSB.getState();
     applyBranding(fresh.config);
-    setStatus("Business profile saved — sidebar updated.", "settingsStatus");
+    setStatus("Business profile saved - sidebar updated.", "settingsStatus");
   });
 
   document.getElementById("btnSaveApi")?.addEventListener("click", async () => {
@@ -7919,7 +7919,7 @@ async function initHome() {
     setStatus("API key removed.", "settingsStatus");
   });
 
-  // V1.5 Phase 1.2 — Mobile Count launcher (large taps, optional weigh)
+  // V1.5 Phase 1.2 - Mobile Count launcher (large taps, optional weigh)
   document.getElementById("btnMobileCount")?.addEventListener("click", () => {
     openMobileCount();
   });
@@ -7952,7 +7952,7 @@ function openRecipesPanel() {
 // store for scan closure
 window.__currentMobileOverlay = null;
 
-/* V1.5 Phase 1.2 Mobile Count — hand-crafted, fun yet professional.
+/* V1.5 Phase 1.2 Mobile Count - hand-crafted, fun yet professional.
    No generic AI patterns. Large 52px+ taps. Follows map order.
    Weigh optional via existing setting. Fast presets. Saves to current count.
    Matches copper/dark/tactile language from existing UI.
@@ -8008,7 +8008,7 @@ function openMobileCount() {
 function renderMobileCountContent(container) {
   const stations = sortedStations();
   if (!stations.length) {
-    container.innerHTML = `<p style="color:var(--text-muted);padding:20px;">No map yet — finish setup first.</p>`;
+    container.innerHTML = `<p style="color:var(--text-muted);padding:20px;">No map yet - finish setup first.</p>`;
     return;
   }
 
@@ -8223,7 +8223,7 @@ function updateMobileValue(bottleId, bottle, weighOn) {
   else valEl.style.color = 'var(--text)';
 }
 
-/* V1.5 Phase 2.1 — Recipe builder + menu costing
+/* V1.5 Phase 2.1 - Recipe builder + menu costing
    Simple, optional, fun yet professional. No AI slop.
    Ingredients reference current bottles by name.
    Cost calc uses bottle.cost (per bottle) converted to per-oz using size.
@@ -8295,7 +8295,7 @@ function renderRecipesPanel(container) {
   seedExampleRecipes();
   const recipes = barState.recipes || [];
   let html = `<div class="panel panel--glass"><h2>Recipes & Menu Costing</h2>`;
-  html += `<p class="field-hint">Build recipes from your bar. Costs auto-calculate from your product costs (set in Spreadsheets view for real numbers — start with 0 if first time). Optional but powerful for menu pricing.</p>`;
+  html += `<p class="field-hint">Build recipes from your bar. Costs auto-calculate from your product costs (set in Spreadsheets view for real numbers - start with 0 if first time). Optional but powerful for menu pricing.</p>`;
   if ((barState.recipes || []).length === 0 && allBottles().some(b => !b.cost || b.cost === 0)) {
     html += `<p style="color:var(--copper); font-size:0.85rem;">First time? Set some unit costs in Spreadsheets first for meaningful numbers here.</p>`;
   }
@@ -8308,7 +8308,7 @@ function renderRecipesPanel(container) {
     const profit = (r.menu_price || 0) - cost;
     html += `
       <div style="border:1px solid var(--border); padding:8px; margin-bottom:6px; border-radius:4px;">
-        <strong>${escapeHtml(r.name)}</strong> — ${r.yield || 1} serving(s)<br>
+        <strong>${escapeHtml(r.name)}</strong> - ${r.yield || 1} serving(s)<br>
         <span style="font-size:0.85rem;">Cost/serving: $${cost.toFixed(2)} | Menu: $${(r.menu_price||0).toFixed(2)} | Cost %: ${pct.toFixed(1)}% | Profit: $${profit.toFixed(2)}</span>
         <button class="btn btn-ghost btn-sm" style="float:right; margin-left:4px;" data-del-recipe="${r.id}">Delete</button>
         <button class="btn btn-ghost btn-sm" style="float:right;" data-edit-recipe="${r.id}">Edit</button>
@@ -8503,7 +8503,7 @@ function buildPurchaseOrderText(orders, { vendor, poNumber, notes } = {}) {
     ``,
     ...lines.map((o, i) => {
       const qty = o.orderQty ?? o.suggested;
-      return `${String(i + 1).padStart(2, " ")}. ${qty} × ${o.name} (${o.size || "—"})  — station: ${o.station}`;
+      return `${String(i + 1).padStart(2, " ")}. ${qty} × ${o.name} (${o.size || "-"})  - station: ${o.station}`;
     }),
     ``,
     `Total lines: ${lines.length}`,
@@ -8511,7 +8511,7 @@ function buildPurchaseOrderText(orders, { vendor, poNumber, notes } = {}) {
     notes ? `` : null,
     notes ? `Notes: ${notes}` : null,
     ``,
-    `Generated by Open Source Barware (local) — please confirm availability and ETA.`,
+    `Generated by Open Source Barware (local) - please confirm availability and ETA.`,
   ].filter((x) => x !== null);
 
   return { text: body.join("\n"), poNumber: po, vendor: vendorLabel, lines };
@@ -8547,7 +8547,7 @@ async function copyToClipboard(text) {
 }
 
 function openMailtoOrder({ vendor, text, subject }) {
-  const sub = encodeURIComponent(subject || `Purchase order — ${vendor || "order"}`);
+  const sub = encodeURIComponent(subject || `Purchase order - ${vendor || "order"}`);
   const body = encodeURIComponent(text);
   // Keep under common mailto length limits; still open if long (client may truncate)
   const href = `mailto:?subject=${sub}&body=${body.slice(0, 1800)}`;
@@ -8557,7 +8557,7 @@ function openMailtoOrder({ vendor, text, subject }) {
 async function logPurchaseOrderSent(poPayload) {
   const { text, poNumber, vendor, lines } = poPayload;
   await OSB.uploadPosLog({
-    label: `PO ${poNumber} → ${vendor}`,
+    label: `PO ${poNumber} > ${vendor}`,
     note: `${lines.length} lines · logged as sent order`,
     text,
     inputType: "po",
@@ -8584,7 +8584,7 @@ async function openSmartOrdersPanel() {
   overlay.innerHTML = `
     <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg);gap:12px;flex-wrap:wrap;">
       <div>
-        <span style="font-family:var(--font-serif);font-size:1.1rem;color:var(--copper-bright);">Smart Orders → Purchase Order</span>
+        <span style="font-family:var(--font-serif);font-size:1.1rem;color:var(--copper-bright);">Smart Orders > Purchase Order</span>
         <span style="font-size:0.75rem;color:var(--text-muted);margin-left:8px;">V1.5 · 1-click send</span>
       </div>
       <button id="closeOrders" type="button" style="background:transparent;border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:4px;font-size:0.9rem;">Close</button>
@@ -8596,7 +8596,7 @@ async function openSmartOrdersPanel() {
       <button type="button" id="btnPoEmail" class="btn btn-secondary" style="flex:1;min-width:140px;min-height:48px;">Email draft</button>
       <button type="button" id="btnPoCsv" class="btn btn-ghost" style="flex:1;min-width:120px;min-height:48px;">CSV</button>
       <button type="button" id="btnPoLog" class="btn btn-secondary" style="flex:1;min-width:140px;min-height:48px;">Log as sent</button>
-      <button type="button" id="btnPoToReceive" class="btn btn-ghost" style="flex:1;min-width:140px;min-height:48px;">→ Receive</button>
+      <button type="button" id="btnPoToReceive" class="btn btn-ghost" style="flex:1;min-width:140px;min-height:48px;">> Receive</button>
     </div>
   `;
   document.body.appendChild(overlay);
@@ -8638,7 +8638,7 @@ async function openSmartOrdersPanel() {
   function render() {
     const { name, addr } = poBusinessHeader();
     let html = `<div class="panel panel--glass">`;
-    html += `<h2 style="margin-top:0;">Suggested reorders → ready-to-send PO</h2>`;
+    html += `<h2 style="margin-top:0;">Suggested reorders > ready-to-send PO</h2>`;
     html += `<p class="field-hint">PAR − on-hand + recent POS sales. Edit qty / vendor, then copy, email, or log. Receive later against the same list.</p>`;
 
     html += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0;">
@@ -8660,7 +8660,7 @@ async function openSmartOrdersPanel() {
     </div>`;
 
     if (smartOrderWorking.length === 0) {
-      html += `<p class="field-hint">All good — nothing below par based on current data. Bump PARs or drop POS sales to generate suggestions.</p>`;
+      html += `<p class="field-hint">All good - nothing below par based on current data. Bump PARs or drop POS sales to generate suggestions.</p>`;
     } else {
       const byVendor = groupOrdersByVendor(smartOrderWorking);
       for (const [vendor, lines] of byVendor) {
@@ -8675,7 +8675,7 @@ async function openSmartOrdersPanel() {
             <td><strong>${escapeHtml(o.name)}</strong> ${escapeHtml(o.size || "")}</td>
             <td class="workbook-num">${o.current}</td>
             <td class="workbook-num">${o.par}</td>
-            <td class="workbook-num">${o.recentSales || "—"}</td>
+            <td class="workbook-num">${o.recentSales || "-"}</td>
             <td><input class="po-qty" type="number" min="0" step="1" value="${o.orderQty ?? o.suggested}" style="width:64px;" /></td>
             <td><input class="po-vendor" type="text" value="${escapeHtml(o.vendor)}" style="width:120px;" /></td>
           </tr>`;
@@ -8747,18 +8747,18 @@ async function openSmartOrdersPanel() {
 
   overlay.querySelector("#btnPoCopy").onclick = async () => {
     const po = buildCurrentPo();
-    if (!po) return setPoStatus("Nothing to order — all qtys are 0.");
+    if (!po) return setPoStatus("Nothing to order - all qtys are 0.");
     const ok = await copyToClipboard(po.text);
-    setPoStatus(ok ? `PO ${po.poNumber} copied — paste into text/email to your rep.` : "Copy failed — open Preview and select manually.");
+    setPoStatus(ok ? `PO ${po.poNumber} copied - paste into text/email to your rep.` : "Copy failed - open Preview and select manually.");
   };
 
   overlay.querySelector("#btnPoEmail").onclick = () => {
     const po = buildCurrentPo();
-    if (!po) return setPoStatus("Nothing to order — all qtys are 0.");
+    if (!po) return setPoStatus("Nothing to order - all qtys are 0.");
     openMailtoOrder({
       vendor: po.vendor,
       text: po.text,
-      subject: `Purchase order ${po.poNumber} — ${poBusinessHeader().name}`,
+      subject: `Purchase order ${po.poNumber} - ${poBusinessHeader().name}`,
     });
     setPoStatus(`Email draft opened for ${po.poNumber}. Add your supplier address in the To field.`);
   };
@@ -8810,10 +8810,10 @@ async function openSmartOrdersPanel() {
     switchAdminView("inputs");
     loadInputsHub().then(() => {
       renderReceiveList();
-      setStatus("PO lines loaded into Receive — edit actuals, then Log receipt.", "receiveStatus");
+      setStatus("PO lines loaded into Receive - edit actuals, then Log receipt.", "receiveStatus");
     }).catch(() => {
       renderReceiveList();
-      setStatus("PO lines loaded into Receive — edit actuals, then Log receipt.", "receiveStatus");
+      setStatus("PO lines loaded into Receive - edit actuals, then Log receipt.", "receiveStatus");
     });
   };
 }
@@ -8862,7 +8862,7 @@ async function refreshVenuePanels() {
               .map(
                 (x) => `<div class="transfer-history-row">
                 <strong>${Number(x.qty).toFixed(1)} × ${escapeHtml(x.product || "")}</strong>
-                <span class="field-hint">${escapeHtml(x.from_bar_name || "")} → ${escapeHtml(x.to_bar_name || "")}</span>
+                <span class="field-hint">${escapeHtml(x.from_bar_name || "")} > ${escapeHtml(x.to_bar_name || "")}</span>
                 <span class="field-hint">${escapeHtml((x.created_at || "").slice(0, 16).replace("T", " "))}${x.note ? " · " + escapeHtml(x.note) : ""}</span>
               </div>`
               )
@@ -8879,7 +8879,7 @@ async function openTransferPanel() {
   const listed = await OSB.listBars();
   const bars = listed.bars || [];
   if (bars.length < 2) {
-    window.alert("Add a second venue in Settings → Your venues first. Then you can move stock between them.");
+    window.alert("Add a second venue in Settings > Your venues first. Then you can move stock between them.");
     switchAdminView("settings");
     return;
   }
@@ -8894,7 +8894,7 @@ async function openTransferPanel() {
   const bottleOpts = bottles
     .map(
       (b) =>
-        `<option value="${escapeHtml(b.id)}" data-size="${escapeHtml(b.size || "")}" data-level="${b.current_level ?? 0}" data-name="${escapeHtml(b.name || "")}">${escapeHtml(b.name || "Bottle")} (${escapeHtml(b.size || "—")}) · on hand ${Number(b.current_level || 0).toFixed(1)}</option>`
+        `<option value="${escapeHtml(b.id)}" data-size="${escapeHtml(b.size || "")}" data-level="${b.current_level ?? 0}" data-name="${escapeHtml(b.name || "")}">${escapeHtml(b.name || "Bottle")} (${escapeHtml(b.size || "-")}) · on hand ${Number(b.current_level || 0).toFixed(1)}</option>`
     )
     .join("");
 
@@ -8921,21 +8921,21 @@ async function openTransferPanel() {
     </div>
     <div style="flex:1;overflow:auto;padding:16px;max-width:560px;width:100%;margin:0 auto;">
       <div class="panel panel--glass">
-        <p class="field-hint" style="margin-top:0;">Move bottles from one venue to another. Both inventories update together. Destination gets a matching product — or we create it under “Transfers in”.</p>
+        <p class="field-hint" style="margin-top:0;">Move bottles from one venue to another. Both inventories update together. Destination gets a matching product - or we create it under “Transfers in”.</p>
         <label for="xferFrom">From venue</label>
         <select id="xferFrom">${barOpts(activeId)}</select>
         <label for="xferTo">To venue</label>
         <select id="xferTo">${barOpts(bars.find((b) => b.id !== activeId)?.id, activeId)}</select>
         <label for="xferBottle">Product (from source)</label>
         <select id="xferBottle">
-          <option value="">— pick a bottle —</option>
+          <option value="">- pick a bottle -</option>
           ${bottleOpts || "<option value=\"\" disabled>No bottles on this venue yet</option>"}
         </select>
         <div class="row" style="gap:12px;margin-top:8px;">
           <div style="flex:1;">
             <label for="xferQty">How many (bottles / units)</label>
             <input id="xferQty" type="number" min="0.1" step="0.1" value="1" />
-            <p id="xferAvail" class="field-hint" style="margin:4px 0 0;">On hand: —</p>
+            <p id="xferAvail" class="field-hint" style="margin:4px 0 0;">On hand: -</p>
           </div>
         </div>
         <label for="xferNote">Note (optional)</label>
@@ -8946,7 +8946,7 @@ async function openTransferPanel() {
         </label>
         <p id="xferStatus" class="status" style="margin-top:10px;"></p>
         <div class="actions" style="margin-top:12px;gap:8px;flex-wrap:wrap;">
-          <button type="button" class="btn btn-primary" id="xferSubmit">Move stock →</button>
+          <button type="button" class="btn btn-primary" id="xferSubmit">Move stock ></button>
           <button type="button" class="btn btn-ghost" id="xferClose2">Cancel</button>
         </div>
       </div>
@@ -8970,7 +8970,7 @@ async function openTransferPanel() {
   const updateAvail = () => {
     const opt = bottleEl.selectedOptions[0];
     if (!opt || !opt.value) {
-      availEl.textContent = "On hand: —";
+      availEl.textContent = "On hand: -";
       return;
     }
     const lvl = parseFloat(opt.dataset.level || "0") || 0;
@@ -8993,11 +8993,11 @@ async function openTransferPanel() {
         }
       }
       bottleEl.innerHTML =
-        `<option value="">— pick a bottle —</option>` +
+        `<option value="">- pick a bottle -</option>` +
         bottlesLocal
           .map(
             (b) =>
-              `<option value="${escapeHtml(b.id)}" data-size="${escapeHtml(b.size || "")}" data-level="${b.current_level ?? 0}" data-name="${escapeHtml(b.name || "")}">${escapeHtml(b.name || "Bottle")} (${escapeHtml(b.size || "—")}) · ${Number(b.current_level || 0).toFixed(1)}</option>`
+              `<option value="${escapeHtml(b.id)}" data-size="${escapeHtml(b.size || "")}" data-level="${b.current_level ?? 0}" data-name="${escapeHtml(b.name || "")}">${escapeHtml(b.name || "Bottle")} (${escapeHtml(b.size || "-")}) · ${Number(b.current_level || 0).toFixed(1)}</option>`
           )
           .join("");
       // Keep "to" from listing the same bar
@@ -9029,7 +9029,7 @@ async function openTransferPanel() {
             .map(
               (x) => `<div class="transfer-history-row">
               <strong>${Number(x.qty).toFixed(1)} × ${escapeHtml(x.product || "")}</strong>
-              <span class="field-hint">${escapeHtml(x.from_bar_name)} → ${escapeHtml(x.to_bar_name)}</span>
+              <span class="field-hint">${escapeHtml(x.from_bar_name)} > ${escapeHtml(x.to_bar_name)}</span>
             </div>`
             )
             .join("")}
@@ -9067,7 +9067,7 @@ async function openTransferPanel() {
         note: overlay.querySelector("#xferNote")?.value?.trim() || "",
         createIfMissing: !!overlay.querySelector("#xferCreate")?.checked,
       });
-      statusEl.textContent = `Moved ${qty} × ${opt.dataset.name} → ${res.to_bar?.name || "destination"}${res.transfer?.created_dest ? " (created on dest)" : ""}.`;
+      statusEl.textContent = `Moved ${qty} × ${opt.dataset.name} > ${res.to_bar?.name || "destination"}${res.transfer?.created_dest ? " (created on dest)" : ""}.`;
       // Refresh local source list levels
       await reloadSourceBottles();
       await loadRecent();

@@ -178,7 +178,7 @@ a { color: var(--copper-bright); }
   }
 }
 
-/* V1.5 Phase 1.2 — Mobile Count View (fun + professional, no AI slop)
+/* V1.5 Phase 1.2 - Mobile Count View (fun + professional, no AI slop)
    Large taps, tactile, operator-first. Extends existing copper/dark language.
    Designed for shelf-to-sheet walks on phone. Weigh mode optional.
 */
@@ -929,7 +929,7 @@ textarea { min-height: 140px; resize: vertical; }
 }
 
 .guide-list li::before {
-  content: "—";
+  content: "-";
   position: absolute;
   left: 0;
   color: var(--copper);
@@ -1344,7 +1344,7 @@ code {
   line-height: 1.5;
 }
 
-/* On state — program releases (copper) */
+/* On state - program releases (copper) */
 .updates-toggle-card--releases:has(.updates-toggle-input:checked) {
   border-color: var(--copper);
   background: linear-gradient(135deg, rgba(168, 120, 79, 0.16), rgba(17, 24, 34, 0.95));
@@ -1370,7 +1370,7 @@ code {
   color: var(--brass);
 }
 
-/* On state — Hidden Bar Tours (patina / wine) */
+/* On state - Hidden Bar Tours (patina / wine) */
 .updates-toggle-card--tour:has(.updates-toggle-input:checked) {
   border-color: var(--patina-light);
   background: linear-gradient(135deg, rgba(74, 124, 111, 0.18), rgba(107, 45, 60, 0.12));
@@ -1514,7 +1514,7 @@ code {
   margin-bottom: 10px;
 }
 
-/* Station cards — plug and play */
+/* Station cards - plug and play */
 .station-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
 
 .station-card {
@@ -2669,7 +2669,7 @@ tr.row-flagged td.raw-heard {
   font-style: italic;
 }
 
-/* Hard reset (start over) — stages after the walk */
+/* Hard reset (start over) - stages after the walk */
 .hard-reset-row {
   margin-top: 14px;
   padding-top: 14px;
@@ -3762,7 +3762,7 @@ tr.row-flagged td.raw-heard {
   .dashboard-hero { grid-template-columns: 1fr; }
 }
 
-/* ── Admin paint — copper-pair refresh ── */
+/* ── Admin paint - copper-pair refresh ── */
 
 .admin-body {
   background:
