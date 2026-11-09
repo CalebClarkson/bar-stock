@@ -904,3 +904,68 @@ def dashboard(conn, start: str, end: str) -> dict[str, Any]:
         "categories": categories, "reorder": reorder, "idle": idle[:40],
         "price_changes": rows(conn, "SELECT * FROM price_history WHERE ts >= ? AND ts < ? ORDER BY ts DESC", lo, hi),
     }
+
+
+# ── Counts sent from a phone ─────────────────────────────────────────────────
+
+MAX_UNITS = 100000
+
+
+def _units(v: Any) -> float:
+    u = float(v)
+    if not 0 <= u <= MAX_UNITS:
+        raise ValueError("A count in the phone file is out of range")
+    return u
+
+
+def phone_count(conn, data: dict[str, Any], add_new: bool = False, user: str = "") -> dict[str, Any]:
+    """Fill the open stocktake from a phone count file. Only what was counted on the phone is filled in, so
+    two phones (say Bar and Cellar) can each send their part. New items are listed, and only become
+    products when add_new is set, so nobody creates a duplicate by accident."""
+    import venue_import
+
+    if not isinstance(data, dict) or data.get("kind") != "bar-stock-count":
+        raise ValueError("That is not a count file from the phone page")
+    who = str(data.get("by") or "").strip()[:40]
+    who = f"{who} (phone)" if who else (user or "phone")
+    active = {r["id"]: r for r in rows(conn, "SELECT * FROM products WHERE active = 1")}
+    filled, skipped = {loc: 0 for loc in LOCATIONS}, []
+    counts = data.get("counts") or {}
+    for loc in LOCATIONS:
+        for line in counts.get(loc) or []:
+            pid, units = int(line[0]), _units(line[1])
+            if pid not in active:
+                skipped.append(str(line[2] if len(line) > 2 else pid)[:80])
+                continue
+            save_draft(conn, loc, pid, units, who)
+            filled[loc] += 1
+    new, added = [], []
+    for item in data.get("new") or []:
+        loc = item.get("loc")
+        name = re.sub(r"\s+", " ", str(item.get("name") or "")).strip()[:80]
+        size = str(item.get("size") or "").strip()[:40]
+        if loc not in LOCATIONS or not name:
+            continue
+        units = _units(item.get("units") or 0)
+        try:
+            unit_ml, _ = venue_import.parse_unit(size)
+        except ValueError:
+            new.append({"loc": loc, "name": name, "size": size, "units": units, "why": "Size not understood, e.g. 70cl bottle"})
+            continue
+        same = next((p for p in active.values() if p["unit_ml"] == unit_ml and name.lower() in
+                     (p["name"].lower(), f"{p['name']} {p['variant']}".strip().lower(), product_label(p).lower())), None)
+        if same:
+            save_draft(conn, loc, same["id"], units, who)
+            filled[loc] += 1
+            continue
+        if not add_new:
+            new.append({"loc": loc, "name": name, "size": size, "units": units, "why": "Not a product yet"})
+            continue
+        pid = save_product(conn, {"name": name, "unit_label": size, "category": str(item.get("category") or "")[:40]},
+                           user=user)
+        active[pid] = conn.execute("SELECT * FROM products WHERE id = ?", (pid,)).fetchone()
+        save_draft(conn, loc, pid, units, who)
+        filled[loc] += 1
+        added.append(f"{name} ({size})")
+    return {"filled": filled, "skipped": skipped, "new": new, "added": added, "by": who}
+

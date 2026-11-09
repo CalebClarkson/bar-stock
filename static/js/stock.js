@@ -31,6 +31,7 @@ const ICONS = {
   palette: "M12 3a9 9 0 1 0 0 18c.9 0 1.5-.7 1.5-1.5 0-.4-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1 0-.8.7-1.4 1.5-1.4H16a5 5 0 0 0 5-5c0-4.4-4-8-9-8zM7.5 11.5v.1M10.5 7.5v.1M15 7.5v.1",
   reset: "M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4",
   people: "M15.5 19v-1a4 4 0 0 0-4-4h-5a4 4 0 0 0-4 4v1M9 10.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM21.5 19v-1a4 4 0 0 0-3-3.9M15 3.6a3.5 3.5 0 0 1 0 6.8",
+  phone: "M8 2.5h8a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-15a2 2 0 0 1 2-2zM11 18.5h2",
   plus: "M12 5v14M5 12h14", download: "M12 4v11M7 10l5 5 5-5M5 20h14", chart: "M4 20h16M7 16v-5M12 16V7M17 16v-8",
 };
 const icon = (name, size = 18) => `<svg class="i" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
@@ -639,7 +640,7 @@ const TASKS = {
       ${sheet.unmatched.length ? `<h3>Enter these by hand (${sheet.unmatched.length})</h3><div class="scroll"><table><thead><tr><th>Location</th><th>Item</th><th>Unit</th><th class="n">Units</th><th>Why</th></tr></thead><tbody>
       ${sheet.unmatched.map((u) => `<tr><td>${esc(u.location)}</td><td>${esc(u.name)}${u.variant ? `, ${esc(u.variant)}` : ""}</td><td>${esc(u.unit)}</td><td class="n">${esc(u.units)}</td><td>${esc(u.why)}</td></tr>`).join("")}</tbody></table></div>
       ${sheet.unmatched.some((u) => u.why === "No matching product") ? `<p class="hint">Check none of these is a product you already have under another name. Otherwise add them all as new products.</p><div class="row"><button class="btn ghost" id="countNew">Add as new products</button></div>` : ""}` : ""}` : ""}</div>` : "";
-    return `${backBtn}<div class="card"><h2>Stocktake</h2>
+    return `${backBtn}${phoneCard()}<div class="card"><h2>Stocktake</h2>
       <p class="hint">Count what is on the shelf, using tenths for open bottles (0.7). Each figure saves as you type, so Bar and Cellar can be counted by two people at once. Counted so far: ${done}.</p>
       <div class="seg">${LOCS.map((l) => `<button data-loc="${l}" class="${l === loc ? "on" : ""}">${l}</button>`).join("")}</div>
       <div class="tools"><input id="countFilter" placeholder="Find a product…" aria-label="Find"></div>
@@ -1209,6 +1210,17 @@ const CLICK = {
     await loadBranding();
     await render();
   },
+  phoneLink: async () => {
+    phone.link = await phoneLinkFor();
+    try { await navigator.clipboard.writeText(phone.link); toast("Link copied. Paste it into an email or message to your phone."); }
+    catch { toast("Select the link below and copy it."); }
+    await render();
+  },
+  phoneNew: async () => {
+    if (!phone.file) throw new Error("Choose the file again");
+    if (!confirm("Add every new item from the phone as a product and fill in its count?")) return;
+    await importPhone(phone.file, true);
+  },
   styleReset: async () => {
     if (!confirm("Go back to the original look? Your logo and name stay.")) return;
     await api("/api/venue/branding", { json: { reset_style: true } });
@@ -1334,6 +1346,51 @@ async function saveStyle(change) {
   applyBranding();
   await render();
   await api("/api/venue/branding", { json: change });
+}
+
+// ── Counting on a phone ──────────────────────────────────────────────────────
+// The phone page lives on GitHub Pages and holds no venue data. The product list rides in the link
+// after "#", which browsers never send to a website; counts come back as a file someone emails here.
+
+let phone = { link: "", file: null, result: null };
+
+async function phoneLinkFor() {
+  const products = base.stock.map((l) => [l.product_id, l.label.replace(/ \([^)]*\)$/, ""), l.category || "Other", l.unit_label]);
+  const data = { kind: "bar-stock-list", v: 1, made: new Date().toISOString(), venue: brand.name || "", color: brand.color || "", products };
+  const stream = new Blob([JSON.stringify(data)]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+  const buf = new Uint8Array(await new Response(stream).arrayBuffer());
+  let bin = "";
+  for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+  return `${base.phone_url}#list=${btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")}`;
+}
+
+function phoneCard() {
+  const r = phone.result;
+  const res = r ? `<div class="result-box">
+      <b>Filled in from ${esc(r.by)}:</b> Bar ${r.filled.Bar}, Cellar ${r.filled.Cellar}.
+      ${r.added.length ? `<br>Added as new products: ${r.added.map(esc).join(", ")}.` : ""}
+      ${r.skipped.length ? `<br>Skipped (no longer stocked): ${r.skipped.map(esc).join(", ")}.` : ""}
+      ${r.new.length ? `<h3>New items from the phone (${r.new.length})</h3><div class="scroll"><table><thead><tr><th>Where</th><th>Item</th><th>Size</th><th class="n">Count</th><th></th></tr></thead><tbody>
+        ${r.new.map((n) => `<tr><td>${esc(n.loc)}</td><td>${esc(n.name)}</td><td>${esc(n.size)}</td><td class="n">${num(n.units, 2)}</td><td class="hint">${esc(n.why)}</td></tr>`).join("")}</tbody></table></div>
+        <p class="hint">Check none of these is already a product under another name; if one is, type its count in below instead.</p>
+        ${isAdmin() || canDo("count") ? `<button class="btn ghost" id="phoneNew">${icon("plus", 16)} Add them as new products</button>` : ""}` : ""}</div>` : "";
+  return `<div class="card"><h2>${icon("phone")} Count on a phone</h2>
+    <ol class="steps"><li><b>Copy phone link</b>, email or message it to your phone, open it and add it to the home screen. Only needed once, and again when products change.</li>
+      <li>Count on the phone, then press <b>Send to PC</b> and email the file here.</li>
+      <li>Drop the file below. Check the figures, then press <b>Finish stocktake</b>.</li></ol>
+    <div class="row"><button class="btn" id="phoneLink">${icon("link", 16)} Copy phone link</button>
+      ${phone.link ? `<label style="flex:1 1 320px">The link (if copying did not work, select it and copy)<input readonly value="${esc(phone.link)}" id="phoneLinkText"></label>` : ""}</div>
+    <div class="dropzone" id="phoneDrop">${icon("upload", 20)} Drop the count file from the phone here, or <label class="link" style="display:inline;color:var(--link);cursor:pointer">choose it<input type="file" id="phoneFile" accept=".json,application/json" class="hidden"></label></div>
+    ${res}</div>`;
+}
+
+async function importPhone(file, addNew = false) {
+  let data;
+  try { data = JSON.parse(await file.text()); } catch { throw new Error("That file is not a count from the phone page"); }
+  const r = await api("/api/venue/count/phone", { json: { file: data, add_new: addNew } });
+  phone = { ...phone, file, result: r };
+  toast(`Filled in ${r.filled.Bar + r.filled.Cellar} counts from ${r.by}${r.new.length ? `, ${r.new.length} new items to check` : ""}`);
+  if (addNew) await reload(); else await render();
 }
 
 async function uploadCount(addNew) {
@@ -1491,6 +1548,7 @@ document.addEventListener("click", guard(async (e) => {
 
 document.addEventListener("change", guard(async (e) => {
   const el = e.target, ds = el.dataset;
+  if (el.id === "phoneFile" && el.files[0]) { const f = el.files[0]; el.value = ""; return importPhone(f); }
   if (el.id === "csvPick" && el.files[0]) { const f = el.files[0]; el.value = ""; return uploadSales(f); }
   if (el.id === "bLogo" && el.files[0]) {
     const logo = await prepareLogo(el.files[0]);
@@ -1594,20 +1652,22 @@ document.addEventListener("focusin", (e) => {
 document.addEventListener("focusout", () => { $("tip").style.display = "none"; });
 
 // Drag a CSV onto the upload card.
+const dropZone = (e) => e.target.closest && e.target.closest("#drop, #phoneDrop");
 document.addEventListener("dragover", (e) => {
-  const z = e.target.closest && e.target.closest("#drop");
+  const z = dropZone(e);
   if (!z) return;
   e.preventDefault();
   z.classList.add("drag");
 });
-document.addEventListener("dragleave", (e) => { const z = e.target.closest && e.target.closest("#drop"); if (z) z.classList.remove("drag"); });
+document.addEventListener("dragleave", (e) => { const z = dropZone(e); if (z) z.classList.remove("drag"); });
 document.addEventListener("drop", guard(async (e) => {
-  const z = e.target.closest && e.target.closest("#drop");
+  const z = dropZone(e);
   if (!z) return;
   e.preventDefault();
   z.classList.remove("drag");
   const f = e.dataTransfer.files[0];
-  if (f) await uploadSales(f);
+  if (f && z.id === "phoneDrop") await importPhone(f);
+  else if (f) await uploadSales(f);
 }));
 
 guard(boot)();

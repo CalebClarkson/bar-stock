@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stocktake</title>
+<meta name="description" content="Count bar stock on your phone, then send the count to the Bar Stock app.">
+<meta name="theme-color" content="#1f6b5c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Stocktake">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<!-- This page holds no venue data. The product list arrives in the part of the link after "#",
+     which browsers never send to the website, and everything counted stays on this phone until
+     you press Send to PC. -->
+<style>
+:root{--brand:#1f6b5c;--ink-on-brand:#fff;--bg:#f4f5f7;--card:#fff;--ink:#14181f;--muted:#69707d;--line:#e4e7ec;--soft:#eef4f2;
+  --done:#e9f8ef;--done-ink:#067647;--bad:#b42318;--r:14px;--safe-b:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1216;--card:#181c22;--ink:#e9ecf1;--muted:#99a1ae;--line:#2a3039;--soft:#1d2a27;--done:#13291d;--done-ink:#6ce9a6;--bad:#f97066}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 -apple-system,"Segoe UI",system-ui,Roboto,sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+input{font:inherit;color:var(--ink)}
+.hidden{display:none!important}
+/* Top */
+.top{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line);padding:calc(env(safe-area-inset-top,0px) + 10px) 14px 10px}
+.title{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.title b{font-size:1.1rem;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.title .menu{background:none;border:1px solid var(--line);border-radius:10px;padding:6px 12px;font-size:.9rem}
+.seg{display:flex;background:var(--bg);border-radius:12px;padding:4px;gap:4px}
+.seg button{flex:1;border:0;background:none;padding:9px;border-radius:9px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--brand);color:var(--ink-on-brand)}
+.prog{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:.82rem;color:var(--muted)}
+.bar{flex:1;height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.bar span{display:block;height:100%;background:var(--brand);width:0;transition:width .2s}
+.search{margin-top:10px;width:100%;border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:10px 12px;font-size:1rem}
+/* List */
+main{padding:6px 10px calc(96px + var(--safe-b))}
+.cat{margin:16px 4px 6px;font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;display:flex;justify-content:space-between}
+.item{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:8px 8px 8px 12px;margin-bottom:6px}
+.item.done{background:var(--done);border-color:transparent}
+.item .nm{flex:1;min-width:0}
+.item .nm b{display:block;font-weight:600;font-size:.95rem;line-height:1.25}
+.item .nm span{font-size:.78rem;color:var(--muted)}
+.item.new .nm span{color:var(--brand);font-weight:600}
+.step{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-size:1.4rem;line-height:1;display:grid;place-items:center;flex:0 0 auto}
+.item.done .step{border-color:transparent}
+.qty{width:62px;height:44px;text-align:center;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:1.1rem;font-weight:700;flex:0 0 auto}
+.qty:focus{outline:2px solid var(--brand);border-color:transparent}
+.add{width:100%;background:none;border:1.5px dashed var(--line);border-radius:var(--r);padding:11px;color:var(--muted);font-weight:600;margin:2px 0 6px}
+.empty{text-align:center;color:var(--muted);padding:30px 10px}
+/* Bottom */
+.foot{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 14px calc(10px + var(--safe-b));display:flex;gap:10px;z-index:5}
+.btn{flex:1;border:0;border-radius:14px;padding:14px;font-weight:700;font-size:1rem;background:var(--brand);color:var(--ink-on-brand)}
+.btn.ghost{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+.btn.danger{background:none;color:var(--bad);border:1px solid var(--line)}
+/* Sheets */
+.sheet{position:fixed;inset:0;z-index:10;background:rgba(0,0,0,.45);display:flex;align-items:flex-end}
+.sheet>div{background:var(--card);width:100%;max-height:92vh;overflow:auto;border-radius:20px 20px 0 0;padding:20px 18px calc(20px + var(--safe-b))}
+.sheet h2{margin:0 0 6px;font-size:1.2rem}
+.sheet p{color:var(--muted);margin:6px 0 14px;font-size:.92rem}
+.sheet label{display:block;font-size:.85rem;color:var(--muted);margin:12px 0 4px;font-weight:600}
+.sheet input,.sheet textarea{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:12px;font-size:1rem}
+.sheet textarea{min-height:90px;resize:vertical}
+.sheet .btns{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+.sum{display:flex;gap:10px;margin:10px 0}
+.sum div{flex:1;background:var(--bg);border-radius:12px;padding:10px;text-align:center;font-size:.8rem;color:var(--muted)}
+.sum b{display:block;font-size:1.4rem;color:var(--ink)}
+.welcome{padding:calc(env(safe-area-inset-top,0px) + 30px) 20px 30px;max-width:520px;margin:0 auto}
+.welcome h1{font-size:1.5rem;margin:0 0 8px}
+.welcome ol{padding-left:20px;color:var(--muted)}
+.welcome li{margin:8px 0}
+.welcome textarea{width:100%;min-height:100px;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:12px;font-size:.95rem;margin:12px 0}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(90px + var(--safe-b));background:var(--ink);color:var(--card);padding:10px 16px;border-radius:12px;font-weight:600;z-index:20;max-width:calc(100% - 32px);text-align:center}
+</style>
+</head>
+<body>
+
+<div id="welcome" class="welcome hidden">
+  <h1>Stocktake on your phone</h1>
+  <p>This page needs your venue's product list once. It comes from the Bar Stock app on the work PC.</p>
+  <ol>
+    <li>On the work PC, open <b>Stocktake</b> and press <b>Copy phone link</b>.</li>
+    <li>Email or message that link to yourself, and open it on this phone.</li>
+    <li>On an iPhone, the home screen icon keeps its own copy, so open the icon and paste the link below.</li>
+  </ol>
+  <textarea id="pasteLink" placeholder="Paste the link from the PC here" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>
+  <button class="btn" id="loadLink" style="width:100%">Load the product list</button>
+  <p style="color:var(--muted);font-size:.85rem;margin-top:18px">Tip: add this page to your home screen (Share &gt; Add to Home Screen on iPhone, or the browser menu &gt; Add to Home screen on Android). It then works like an app, even with no signal.</p>
+</div>
+
+<div id="app" class="hidden">
+  <div class="top">
+    <div class="title"><b id="venue">Stocktake</b><button class="menu" id="openMenu">More</button></div>
+    <div class="seg" id="locs"><button data-loc="Bar">Bar</button><button data-loc="Cellar">Cellar</button></div>
+    <div class="prog"><span id="progTxt"></span><div class="bar"><span id="progBar"></span></div></div>
+    <input class="search" id="search" type="search" placeholder="Find a product" autocomplete="off">
+  </div>
+  <main id="list"></main>
+  <div class="foot"><button class="btn" id="openSend">Send to PC</button></div>
+</div>
+
+<div id="sheet" class="sheet hidden"><div id="sheetBody"></div></div>
+<div id="toast" class="toast hidden"></div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const LOCS = ["Bar", "Cellar"];
+
+// ── Saved on this phone ──
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("bsc." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("bsc." + k, JSON.stringify(v)); } catch { toast("This phone would not save. Is private browsing on?"); } },
+};
+let list = store.get("list", null);            // { venue, color, made, products: [[id, label, category, unit]] }
+let count = store.get("count", { Bar: {}, Cellar: {}, new: [] });
+let loc = store.get("loc", "Bar");
+let query = "";
+
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.remove("hidden");
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => t.classList.add("hidden"), 2600);
+}
+const save = () => store.set("count", count);
+const fmt = (n) => (n == null || n === "" ? "" : String(Math.round(n * 100) / 100));
+
+// ── Product list from the PC's link ──
+async function inflate(code) {
+  if (!("DecompressionStream" in window)) throw new Error("This browser is too old. Update the phone, or try Chrome or Safari.");
+  const b64 = code.replace(/-/g, "+").replace(/_/g, "/");
+  const bin = atob(b64 + "===".slice((b64.length + 3) % 4));
+  const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return JSON.parse(await new Response(stream).text());
+}
+
+async function loadFrom(text) {
+  const m = String(text || "").match(/#list=([A-Za-z0-9_-]+)/) || String(text || "").trim().match(/^([A-Za-z0-9_-]{40,})$/);
+  if (!m) throw new Error("That does not look like the link from the PC");
+  const data = await inflate(m[1]);
+  if (data.kind !== "bar-stock-list" || !Array.isArray(data.products)) throw new Error("That link is not a product list");
+  const ids = new Set(data.products.map((p) => p[0]));
+  // Keep what was already counted for products still on the list.
+  for (const l of LOCS) for (const id of Object.keys(count[l] || {})) if (!ids.has(Number(id))) delete count[l][id];
+  list = { venue: String(data.venue || "").slice(0, 60), color: /^#[0-9a-f]{6}$/i.test(data.color || "") ? data.color : "",
+           made: data.made, products: data.products.filter((p) => Array.isArray(p) && Number.isInteger(p[0])) };
+  store.set("list", list);
+  save();
+  return list.products.length;
+}
+
+// ── Drawing ──
+function theme() {
+  if (list && list.color) {
+    document.documentElement.style.setProperty("--brand", list.color);
+    const n = parseInt(list.color.slice(1), 16), lum = 0.299 * (n >> 16 & 255) + 0.587 * (n >> 8 & 255) + 0.114 * (n & 255);
+    document.documentElement.style.setProperty("--ink-on-brand", lum > 165 ? "#14181f" : "#fff");
+    document.querySelector('meta[name="theme-color"]').content = list.color;
+  }
+}
+
+function render() {
+  $("welcome").classList.toggle("hidden", !!list);
+  $("app").classList.toggle("hidden", !list);
+  if (!list) return;
+  theme();
+  $("venue").textContent = list.venue ? `${list.venue} stocktake` : "Stocktake";
+  document.querySelectorAll("#locs button").forEach((b) => b.classList.toggle("on", b.dataset.loc === loc));
+  const mine = count[loc] || (count[loc] = {});
+  const done = Object.keys(mine).length + count.new.filter((n) => n.loc === loc).length;
+  $("progTxt").textContent = `${loc}: ${done} of ${list.products.length} counted`;
+  $("progBar").style.width = `${Math.min(100, done / Math.max(1, list.products.length) * 100)}%`;
+  const q = query.trim().toLowerCase();
+  let html = "", cat = null, shown = 0;
+  const groups = new Map();
+  for (const p of list.products) {
+    if (q && !`${p[1]} ${p[2]}`.toLowerCase().includes(q)) continue;
+    if (!groups.has(p[2])) groups.set(p[2], []);
+    groups.get(p[2]).push(p);
+  }
+  for (const n of count.new) if (n.loc === loc && (!q || n.name.toLowerCase().includes(q))) {
+    if (!groups.has(n.category)) groups.set(n.category, []);
+    groups.get(n.category).push(n);
+  }
+  for (const [c, items] of groups) {
+    const counted = items.filter((p) => (Array.isArray(p) ? mine[p[0]] != null : true)).length;
+    html += `<div class="cat"><span>${esc(c || "Other")}</span><span>${counted}/${items.length}</span></div>`;
+    for (const p of items) {
+      shown++;
+      if (Array.isArray(p)) {
+        const v = mine[p[0]];
+        html += `<div class="item ${v != null ? "done" : ""}"><div class="nm"><b>${esc(p[1])}</b><span>${esc(p[3])}</span></div>
+          <button class="step" data-dec="${p[0]}" aria-label="One less">&minus;</button>
+          <input class="qty" data-id="${p[0]}" inputmode="decimal" value="${fmt(v)}" aria-label="Count for ${esc(p[1])}">
+          <button class="step" data-inc="${p[0]}" aria-label="One more">+</button></div>`;
+      } else {
+        const i = count.new.indexOf(p);
+        html += `<div class="item done new"><div class="nm"><b>${esc(p.name)}</b><span>New item · ${esc(p.size)}</span></div>
+          <button class="step" data-ndec="${i}" aria-label="One less">&minus;</button>
+          <input class="qty" data-new="${i}" inputmode="decimal" value="${fmt(p.units)}" aria-label="Count for ${esc(p.name)}">
+          <button class="step" data-ninc="${i}" aria-label="One more">+</button></div>`;
+      }
+    }
+    if (!q) html += `<button class="add" data-addcat="${esc(c)}">+ Add an item to ${esc(c || "Other")}</button>`;
+  }
+  if (!shown) html = `<div class="empty">Nothing matches "${esc(query)}".<br><br><button class="add" data-addcat="">+ Add "${esc(query)}" as a new item</button></div>`;
+  $("list").innerHTML = html;
+}
+
+function setCount(id, value) {
+  const mine = count[loc];
+  if (value === "" || value == null || isNaN(value)) delete mine[id];
+  else mine[id] = Math.max(0, Math.round(Number(value) * 100) / 100);
+  save();
+}
+
+// ── Sheets ──
+function sheet(html) { $("sheetBody").innerHTML = html; $("sheet").classList.remove("hidden"); }
+const close = () => $("sheet").classList.add("hidden");
+
+function addSheet(cat) {
+  sheet(`<h2>Add a new item</h2><p>For something on the shelf that is not in the list. The PC asks before adding it as a product.</p>
+    <label>Name</label><input id="nName" value="${esc(cat === "" ? query : "")}" placeholder="e.g. Lillet Rose" autocapitalize="words">
+    <label>Size</label><input id="nSize" placeholder="e.g. 70cl bottle, 50L keg, 330ml can">
+    <label>How many in the ${esc(loc)}</label><input id="nUnits" inputmode="decimal" placeholder="e.g. 2.5">
+    <label>Section</label><input id="nCat" value="${esc(cat || "")}" placeholder="e.g. Spirits">
+    <div class="btns"><button class="btn" id="nSave">Add it</button><button class="btn ghost" data-close>Cancel</button></div>`);
+  setTimeout(() => $("nName").focus(), 50);
+}
+
+function sendSheet() {
+  const n = (l) => Object.keys(count[l]).length + count.new.filter((x) => x.loc === l).length;
+  sheet(`<h2>Send to PC</h2><p>This makes a small file with your count. Email it to the work PC, then drop it into Stocktake in Bar Stock. Nothing changes until someone presses Finish there.</p>
+    <div class="sum"><div><b>${n("Bar")}</b>Bar</div><div><b>${n("Cellar")}</b>Cellar</div><div><b>${count.new.length}</b>new items</div></div>
+    <label>Your name (shows who counted)</label><input id="byName" value="${esc(store.get("name", ""))}" autocapitalize="words">
+    <div class="btns"><button class="btn" id="share">Send the file</button>
+    <button class="btn danger" id="clearCount">Start a new count (clears this phone)</button><button class="btn ghost" data-close>Back</button></div>`);
+}
+
+function menuSheet() {
+  sheet(`<h2>More</h2><p>Product list from ${esc(list.made ? new Date(list.made).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "the PC")}, ${list.products.length} products.</p>
+    <label>New product list from the PC (paste the link)</label><textarea id="menuLink" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>
+    <div class="btns"><button class="btn" id="menuLoad">Load it</button><button class="btn ghost" data-close>Close</button></div>
+    <p>Counts are kept on this phone until you send them and start a new count. Products that are no longer on a new list drop out.</p>`);
+}
+
+async function share() {
+  const by = $("byName").value.trim();
+  store.set("name", by);
+  const now = new Date();
+  const stamp = now.toISOString().slice(0, 16).replace("T", "-").replace(":", "");
+  const names = new Map(list.products.map((p) => [p[0], p[1]]));
+  const file = {
+    kind: "bar-stock-count", v: 1, made: now.toISOString(), by, list_made: list.made,
+    counts: Object.fromEntries(LOCS.map((l) => [l, Object.entries(count[l]).map(([id, u]) => [Number(id), u, names.get(Number(id)) || ""])])),
+    new: count.new,
+  };
+  const name = `stocktake-${stamp}${by ? "-" + by.toLowerCase().replace(/[^a-z0-9]+/g, "-") : ""}.json`;
+  const blob = new File([JSON.stringify(file)], name, { type: "application/json" });
+  if (navigator.canShare && navigator.canShare({ files: [blob] })) {
+    try {
+      await navigator.share({ files: [blob], title: "Stocktake", text: `Stocktake${by ? " from " + by : ""}` });
+      toast("Sent. Keep the count here until it is in the PC.");
+      return close();
+    } catch (e) { if (e.name === "AbortError") return; }
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  toast("Saved to Downloads. Attach it to an email to the work PC.");
+}
+
+// ── Events ──
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("button");
+  if (!b) { if (e.target.id === "sheet") close(); return; }
+  const d = b.dataset;
+  try {
+    if (d.loc) { loc = d.loc; store.set("loc", loc); window.scrollTo(0, 0); return render(); }
+    if (d.inc || d.dec) {
+      const id = d.inc || d.dec, cur = count[loc][id] ?? 0;
+      setCount(id, d.inc ? Math.floor(cur) + 1 : Math.max(0, Math.ceil(cur) - 1));
+      if (navigator.vibrate) navigator.vibrate(8);
+      return render();
+    }
+    if (d.ninc || d.ndec) {
+      const n = count.new[d.ninc || d.ndec];
+      n.units = d.ninc ? Math.floor(n.units) + 1 : Math.max(0, Math.ceil(n.units) - 1);
+      save();
+      return render();
+    }
+    if (d.addcat !== undefined) return addSheet(d.addcat);
+    if (d.close !== undefined) return close();
+    if (b.id === "nSave") {
+      const name = $("nName").value.trim(), size = $("nSize").value.trim(), units = Number($("nUnits").value || 0);
+      if (!name) throw new Error("Give it a name");
+      if (!/\d/.test(size)) throw new Error("Give the size, e.g. 70cl bottle");
+      count.new.push({ loc, name, size, units: Math.max(0, units), category: $("nCat").value.trim() });
+      save();
+      close();
+      query = "";
+      $("search").value = "";
+      toast(`${name} added`);
+      return render();
+    }
+    if (b.id === "openSend") return sendSheet();
+    if (b.id === "share") return share();
+    if (b.id === "clearCount") {
+      if (!confirm("Clear everything counted on this phone? Only do this once the count is in the PC.")) return;
+      count = { Bar: {}, Cellar: {}, new: [] };
+      save();
+      close();
+      toast("Ready for a new count");
+      return render();
+    }
+    if (b.id === "openMenu") return menuSheet();
+    if (b.id === "menuLoad" || b.id === "loadLink") {
+      const n = await loadFrom($(b.id === "menuLoad" ? "menuLink" : "pasteLink").value);
+      close();
+      toast(`${n} products loaded`);
+      return render();
+    }
+  } catch (err) { toast(err.message); }
+});
+
+document.addEventListener("change", (e) => {
+  const el = e.target;
+  if (el.dataset.id) { setCount(el.dataset.id, el.value.replace(",", ".")); render(); }
+  if (el.dataset.new !== undefined) {
+    count.new[el.dataset.new].units = Math.max(0, Number(el.value.replace(",", ".")) || 0);
+    save();
+    render();
+  }
+});
+document.addEventListener("focusin", (e) => { if (e.target.classList.contains("qty")) e.target.select(); });
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.classList.contains("qty")) {
+    // Enter moves to the next count, so a whole shelf can be typed in one go.
+    const all = [...document.querySelectorAll(".qty")];
+    e.target.blur();
+    const next = all[all.indexOf(e.target) + 1];
+    if (next) setTimeout(() => document.querySelector(`.qty[data-id="${next.dataset.id}"]`)?.focus(), 30);
+  }
+});
+$("search").addEventListener("input", (e) => { query = e.target.value; render(); });
+
+// ── Start ──
+(async () => {
+  if (location.hash.startsWith("#list=")) {
+    try { toast(`${await loadFrom(location.hash)} products loaded`); }
+    catch (err) { toast(err.message); }
+    history.replaceState(null, "", location.pathname);  // the list is saved; keep it out of the address bar
+  }
+  render();
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+})();
+</script>
+</body>
+</html>

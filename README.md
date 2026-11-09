@@ -47,6 +47,9 @@ to make everything as customisable as possible within the UI so users can make a
 - **Who can change what.** Only admins change anything (drinks, products, prices, people, branding). Managers see
   every figure; staff see stock figures. Everyone can upload the night's sales, and an admin can switch on
   stocktakes, wastage or batches for each person.
+- **Stocktake on a phone.** A small offline page (`docs/`, served by GitHub Pages) that staff add to their home
+  screen. The product list arrives in the part of a link after `#`, which browsers never send to the website, so
+  the page holds no venue data. Counts, including new items, go back to the PC as a file and fill in the stocktake.
 - **Charts.** Takings through the night (or night by night), takings by category and losses by reason, each with a
   hover tooltip and the same numbers as a table.
 - **Security.** PIN login on every route, admin/manager/staff roles, scrypt PIN hashing with lockout, same-origin

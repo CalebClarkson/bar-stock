@@ -76,6 +76,7 @@ def overview(conn):
             conn, "SELECT * FROM products WHERE active = 1 ORDER BY name, variant")],
         "unmapped": conn.execute("SELECT COUNT(DISTINCT item_key) FROM events WHERE status = 'unmapped'").fetchone()[0],
         "square_api": square_api.configured(),
+        "phone_url": os.environ.get("OSB_PHONE_URL", "https://calebclarkson.github.io/bar-stock/"),
         "reasons": db.custom_reasons(conn),
     })
 
@@ -116,6 +117,14 @@ def count_upload(conn):
         for pid, units in lines.items():
             db.save_draft(conn, loc, pid, units, _who())
     return jsonify(sheet)
+
+
+@bp.post("/count/phone")
+@needs("job:count")
+def count_phone(conn):
+    """Fill the count from a phone's count file. Stock changes only when the count is finished."""
+    b = _body()
+    return jsonify(db.phone_count(conn, b.get("file") or {}, add_new=bool(b.get("add_new")), user=_who()))
 
 
 @bp.post("/usage")

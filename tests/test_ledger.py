@@ -480,3 +480,22 @@ def test_without_venue_rules_nothing_is_matched_and_everything_is_kept(tmp_path,
     assert venue_import.import_catalogue(c, CATALOGUE) == {"prices": 5, "matched": 0, "removed": 0}
     with open(venue_import.rules_path(), "w") as fh:  # put it back for the fixture to clean up
         fh.write("{}")
+
+
+def test_phone_count_fills_only_what_was_counted_and_lists_new_items(conn):
+    db.save_draft(conn, "Cellar", 1, 9)
+    data = {"kind": "bar-stock-count", "by": "Sam",
+            "counts": {"Bar": [[1, 2.5, "Vodka"], [99, 1, "Gone"]], "Cellar": []},
+            "new": [{"loc": "Bar", "name": "Lillet Rose", "size": "75cl bottle", "units": 3, "category": "Wine"},
+                    {"loc": "Bar", "name": "vodka", "size": "70cl bottle", "units": 1}]}
+    r = db.phone_count(conn, data)
+    assert r["filled"] == {"Bar": 2, "Cellar": 0} and r["skipped"] == ["Gone"] and r["by"] == "Sam (phone)"
+    assert [n["name"] for n in r["new"]] == ["Lillet Rose"]
+    drafts = {(d["location"], d["product_id"]): d["units"] for d in db.rows(conn, "SELECT * FROM count_drafts")}
+    assert drafts[("Cellar", 1)] == 9 and drafts[("Bar", 1)] == 1  # the typed-in "vodka" matched the product
+    r = db.phone_count(conn, data, add_new=True)
+    assert r["added"] == ["Lillet Rose (75cl bottle)"] and not r["new"]
+    with pytest.raises(ValueError):
+        db.phone_count(conn, {"kind": "something else"})
+    with pytest.raises(ValueError):
+        db.phone_count(conn, {**data, "counts": {"Bar": [[1, -5]]}})
