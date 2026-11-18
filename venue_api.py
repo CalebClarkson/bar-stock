@@ -454,6 +454,22 @@ def price_history(conn):
     return jsonify({"changes": db.rows(conn, "SELECT * FROM price_history ORDER BY id DESC LIMIT 300")})
 
 
+@bp.get("/prices/suggestions")
+@needs("manager")
+def price_suggestions(conn):
+    return jsonify(db.price_suggestions(conn))
+
+
+@bp.post("/prices/target")
+@needs("admin")
+def price_target(conn):
+    t = float(_body().get("target"))
+    if not 0 < t < 95:
+        raise ValueError("Pick a target GP between 1% and 94%")
+    db.set_meta(conn, "target_gp", str(t))
+    return jsonify({"status": "ok"})
+
+
 @bp.post("/prices/catalogue")
 @needs("admin")
 def prices_import(conn):

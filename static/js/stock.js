@@ -615,7 +615,20 @@ const REPORT_VIEWS = {
   async gp() {
     const { prices } = await get("/api/venue/prices");
     const linked = prices.filter((p) => p.product);
-    return `<div class="card"><h2>Prices & GP</h2><p class="hint">Square selling prices (with VAT) against what each serve costs. Low GP is highlighted; a manager can fix costs and links in Settings.</p>
+    const sg = await get("/api/venue/prices/suggestions");
+    const suggest = `<div class="card"><h2>${icon("tag")} Price suggestions</h2>
+      <p class="hint">Till prices that no longer make the target GP at today's costs, with the lowest price that does (rounded up to the next 5p). Change them in Square, then upload the catalogue again in Settings &gt; Prices.</p>
+      <div class="row" style="align-items:center"><label style="flex:0 1 160px">Target GP %<input id="gpTarget" value="${sg.target}" inputmode="decimal" ${isAdmin() ? "" : "disabled"}></label>
+        <span class="sp" style="flex:1"></span>${sg.lines.length ? `<button class="btn ghost" id="printPrices">${icon("print", 16)} Print the list</button>` : ""}</div>
+      ${tbl("priceSuggest", [
+        { k: "item", label: "Square item", f: (r) => `${esc(r.item)}${r.variation ? ` <span class="hint">${esc(r.variation)}</span>` : ""}<span class="sub">${esc(r.product)}</span>` },
+        { k: "cost", label: "Costs", n: true, f: (r) => `${gbp(r.cost)}${r.cost_rise_pct ? `<span class="sub down">cost +${num(r.cost_rise_pct, 1)}% lately</span>` : ""}` },
+        { k: "price", label: "Sells at", n: true, f: (r) => gbp(r.price) },
+        { k: "gp_pct", label: "GP now", n: true, f: (r) => gpCell(r.gp_pct) },
+        { k: "suggested", label: "Suggested", n: true, f: (r) => `<b>${gbp(r.suggested)}</b><span class="sub">+${gbp(r.suggested - r.price)}</span>` },
+        { k: "new_gp", label: "GP then", n: true, f: (r) => pct(r.new_gp) },
+      ], sg.lines, { search: "Search…", csv: true, empty: `Every costed price makes ${pct(sg.target)} GP or more.` })}</div>`;
+    return `${suggest}<div class="card"><h2>Prices & GP</h2><p class="hint">Square selling prices (with VAT) against what each serve costs. Low GP is highlighted; a manager can fix costs and links in Settings.</p>
       ${tbl("gp", [
         { k: "item", label: "Square item", f: (r) => `${esc(r.item)}${r.variation ? ` <span class="hint">${esc(r.variation)}</span>` : ""}<span class="sub">${esc(r.category)}</span>` },
         { k: "price", label: "Sells at", n: true, f: (r) => gbp(r.price) },
@@ -1292,6 +1305,13 @@ const CLICK = {
     await render();
   },
   printReport: async () => printReport(),
+  printPrices: async () => {
+    const sg = await get("/api/venue/prices/suggestions");
+    $("print").innerHTML = `<div class="ph"><div><h1>Price changes to make</h1><p>To keep ${pct(sg.target)} GP at today's costs · printed ${esc(when(new Date().toISOString().slice(0, 16)))}</p></div></div>
+      <table><thead><tr><th>Square item</th><th>Serve</th><th class="n">Now</th><th class="n">GP now</th><th class="n">New price</th><th class="n">GP then</th><th>Done</th></tr></thead><tbody>
+      ${sg.lines.map((r) => `<tr><td>${esc(r.item)}</td><td>${esc(r.variation)}</td><td class="n">${gbp(r.price)}</td><td class="n">${pct(r.gp_pct)}</td><td class="n"><b>${gbp(r.suggested)}</b></td><td class="n">${pct(r.new_gp)}</td><td>&#9744;</td></tr>`).join("")}</tbody></table>`;
+    window.print();
+  },
   parAll: async () => {
     const { lines } = await get("/api/venue/pars/suggestions");
     if (!confirm(`Set ${lines.length} pars to the suggested figures?`)) return;
@@ -1799,6 +1819,12 @@ document.addEventListener("change", guard(async (e) => {
     const p = productById.get(Number(ds.cost));
     if (p) p.unit_cost = el.value === "" ? null : Number(el.value);
     return toast("Cost saved");
+  }
+  if (el.id === "gpTarget") {
+    await api("/api/venue/prices/target", { json: { target: el.value } });
+    cache = {};
+    toast("Target GP saved");
+    return render();
   }
   if (el.id === "parCover") {
     await api("/api/venue/pars/suggestions", { json: { cover: Number(el.value) } });

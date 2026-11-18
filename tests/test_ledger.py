@@ -609,3 +609,14 @@ def test_par_suggestions_follow_weekly_use_and_remember_rejections(conn):
     assert not any(l["key"] == "p:1" for l in db.par_suggestions(conn)["lines"])
     db.decide_pars(conn, {"p:1": 2}, {})
     assert conn.execute("SELECT units FROM pars WHERE product_id = 1").fetchone()[0] == 2
+
+
+def test_price_suggestion_meets_the_target_gp_rounded_up_to_5p(conn):
+    db.set_cost(conn, 1, 14.0)  # 25ml costs 50p
+    conn.execute("INSERT INTO sell_prices (token, item, variation, price, product_id, ml) VALUES ('a', 'Vodka', '25ml', 2.0, 1, 25)")
+    conn.execute("INSERT INTO sell_prices (token, item, variation, price, product_id, ml) VALUES ('b', 'Vodka', '50ml', 9.0, 1, 50)")
+    db.set_cost(conn, 1, 16.8)  # cost up 20%: 25ml now 60p
+    s = db.price_suggestions(conn)
+    assert s["target"] == 70 and [l["token"] for l in s["lines"]] == ["a"]  # the 50ml serve still makes 70%+
+    line = s["lines"][0]
+    assert line["suggested"] == 2.40 and line["new_gp"] >= 70 and line["cost_rise_pct"] == 20

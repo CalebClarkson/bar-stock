@@ -1350,3 +1350,31 @@ def decide_pars(conn, accept: dict[str, float], reject: dict[str, float]) -> int
         conn.execute("INSERT OR REPLACE INTO par_dismissed (key, suggested) VALUES (?, ?)", (key, float(units)))
     return len(accept)
 
+
+# ── Price suggestions ────────────────────────────────────────────────────────
+
+def price_suggestions(conn) -> dict[str, Any]:
+    """Till prices below the target GP at today's costs, with the lowest price that meets it, rounded up
+    to the next 5p, and any rise in the product's cost over the last 90 days."""
+    target = float(_meta(conn, "target_gp", "70"))
+    since = (datetime.now() - timedelta(days=90)).isoformat(timespec="seconds")
+    rises = {}
+    for r in rows(conn, "SELECT ref, old, new, ts FROM price_history WHERE kind = 'cost' AND ts >= ? ORDER BY ts", since):
+        first = rises.setdefault(r["ref"], {"from": r["old"], "since": r["ts"]})
+        if first["from"] is None:  # a product's first ever cost is not a rise
+            first.update({"from": r["old"], "since": r["ts"]})
+        first["to"] = r["new"]
+    out = []
+    for l in price_lines(conn):
+        if l["cost"] is None or l["gp_pct"] is None or l["gp_pct"] >= target:
+            continue
+        need = l["cost"] / (1 - target / 100) * (1 + VAT_RATE)
+        suggested = math.ceil(round(need * 20, 6)) / 20
+        rise = rises.get(str(l["product_id"])) if l["product_id"] else None
+        net = suggested / (1 + VAT_RATE)
+        out.append({**l, "suggested": round(suggested, 2), "new_gp": round((net - l["cost"]) / net * 100, 1),
+                    "cost_rise_pct": round((rise["to"] - rise["from"]) / rise["from"] * 100, 1)
+                    if rise and rise.get("from") and rise.get("to") else None})
+    out.sort(key=lambda x: x["gp_pct"])
+    return {"target": target, "lines": out}
+
