@@ -980,6 +980,7 @@ def dashboard(conn, start: str, end: str) -> dict[str, Any]:
             "stock_value": round(sum(s["value"] or 0 for s in stock.values()), 2),
             "retail_value": round(sum(s["retail"] or 0 for s in stock.values()), 2),
             "retail_missing": sum(1 for s in stock.values() if s["retail"] is None and s["units"] > 0.005),
+            "cost_missing": sum(1 for s in stock.values() if s["unit_cost"] is None and s["units"] > 0.005),
             "below_par": sum(1 for r in reorder if r["par"] is not None and r["units"] < r["par"]),
             "negative": sum(1 for s in stock.values() if s["negative"]),
             "reorder": len(reorder),

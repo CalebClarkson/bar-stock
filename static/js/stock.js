@@ -421,7 +421,7 @@ async function frontView() {
     kpi("Drinks sold", num(k.drinks, 0), change(k.drinks, k.prev_drinks), "drinks", sparkline(d.by_day.map((x) => x.drinks))),
     kpi("Gross profit", pct(k.gp_pct), k.gp_cover_pct != null && k.gp_cover_pct < 95 ? `on the ${k.gp_cover_pct}% of takings with costs` : "after VAT", "gp"),
     kpi("Losses", gbpShort(k.losses), "wastage, comps, staff, overpour", "loss"),
-    kpi("Stock value", gbpShort(k.stock_value), `at cost · last count ${esc(k.last_count ? day(k.last_count) : "never")}`, "stock"),
+    kpi("Stock value", gbpShort(k.stock_value), k.cost_missing ? `at cost · ${k.cost_missing} products have no cost yet` : `at cost · last count ${esc(k.last_count ? day(k.last_count) : "never")}`, "stock"),
     kpi("Retail value", gbpShort(k.retail_value), k.retail_missing ? `at till prices · ${k.retail_missing} products have no till price` : "at till prices, with VAT", "takings"),
     kpi("To order", num(k.reorder, 0), `${k.below_par} below par`, "order"),
   ] : [
@@ -1537,7 +1537,7 @@ async function printReport() {
     <div class="ptiles">${tile("Takings", gbpShort(k.takings), k.prev_takings ? `previous period ${gbpShort(k.prev_takings)}` : "")}
       ${tile("Drinks sold", num(k.drinks, 0), k.prev_drinks ? `previous period ${num(k.prev_drinks, 0)}` : "")}
       ${tile("Gross profit", pct(k.gp_pct), k.gp_cover_pct != null && k.gp_cover_pct < 95 ? `on ${k.gp_cover_pct}% of takings with costs` : "after VAT")}
-      ${tile("Losses", gbpShort(k.losses))}${tile("Stock at cost", gbpShort(k.stock_value))}${tile("Stock at till prices", gbpShort(k.retail_value))}
+      ${tile("Losses", gbpShort(k.losses))}${tile("Stock at cost", gbpShort(k.stock_value), k.cost_missing ? `${k.cost_missing} products have no cost yet` : "")}${tile("Stock at till prices", gbpShort(k.retail_value))}
       ${tile("To order", num(k.reorder, 0), `${k.below_par} below par`)}${tile("Last stocktake", esc(k.last_count ? day(k.last_count) : "never"))}</div>
     <section><h2>${multi ? "Takings by night" : "Takings through the night"}</h2>${multi
       ? columnChart(d.by_day, { label: (p) => day(p.day).slice(0, 6), value: (p) => p.takings, tip: () => "" })

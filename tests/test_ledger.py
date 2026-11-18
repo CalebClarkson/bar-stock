@@ -543,14 +543,14 @@ def test_ignored_codes_skip_food_on_import_and_clear_what_is_there(conn):
 
 def test_phone_count_adds_several_new_items_and_takes_decisions(conn):
     data = {"kind": "bar-stock-count", "counts": {}, "new": [
-        {"loc": "Bar", "name": "Kiwi Syrup", "size": "70cl bottle", "units": 1},
+        {"loc": "Bar", "name": "Lychee Syrup", "size": "70cl bottle", "units": 1},
         {"loc": "Bar", "name": "Melon Syrup", "size": "70cl bottle", "units": 2},
         {"loc": "Cellar", "name": "Vodka Lime", "size": "70cl bottle", "units": 4},
         {"loc": "Bar", "name": "Mystery", "size": "1L bottle", "units": 1}]}
     r = db.phone_count(conn, data, decisions={"2": {"action": "match", "product_id": 1}, "3": {"action": "skip"}})
     assert [n["i"] for n in r["new"]] == [0, 1] and r["left_out"] == ["Mystery (1L bottle)"] and r["filled"]["Cellar"] == 1
     r = db.phone_count(conn, data, add_new=True, decisions={"2": {"action": "match", "product_id": 1}, "3": {"action": "skip"}})
-    assert r["added"] == ["Kiwi Syrup (70cl bottle)", "Melon Syrup (70cl bottle)"] and not r["new"]
+    assert r["added"] == ["Lychee Syrup (70cl bottle)", "Melon Syrup (70cl bottle)"] and not r["new"]
     r = db.phone_count(conn, {**data, "new": data["new"][:2]})  # the same items again match what was just added
     assert not r["added"] and not r["new"] and r["filled"]["Bar"] == 2
 
