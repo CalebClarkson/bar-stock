@@ -418,7 +418,8 @@ async function frontView() {
     kpi("Drinks sold", num(k.drinks, 0), change(k.drinks, k.prev_drinks), "drinks", sparkline(d.by_day.map((x) => x.drinks))),
     kpi("Gross profit", pct(k.gp_pct), k.gp_cover_pct != null && k.gp_cover_pct < 95 ? `on the ${k.gp_cover_pct}% of takings with costs` : "after VAT", "gp"),
     kpi("Losses", gbpShort(k.losses), "wastage, comps, staff, overpour", "loss"),
-    kpi("Stock value", gbpShort(k.stock_value), `last count ${esc(k.last_count ? day(k.last_count) : "never")}`, "stock"),
+    kpi("Stock value", gbpShort(k.stock_value), `at cost · last count ${esc(k.last_count ? day(k.last_count) : "never")}`, "stock"),
+    kpi("Retail value", gbpShort(k.retail_value), k.retail_missing ? `at till prices · ${k.retail_missing} products have no till price` : "at till prices, with VAT", "takings"),
     kpi("To order", num(k.reorder, 0), `${k.below_par} below par`, "order"),
   ] : [
     kpi("Drinks sold", num(k.drinks, 0), change(k.drinks, k.prev_drinks), "drinks"),
@@ -566,7 +567,8 @@ const REPORT_VIEWS = {
       { k: "cellar", label: "Cellar count", n: true, v: (r) => r.counted.Cellar, f: (r) => num(r.counted.Cellar, 2) },
       { k: "par", label: "Par", n: true, f: (r) => (r.par == null ? "-" : num(r.par, 1)) },
     ];
-    if (isMgr()) cols.push({ k: "value", label: "Value", n: true, f: (r) => gbp(r.value) });
+    if (isMgr()) cols.push({ k: "value", label: "Value at cost", n: true, f: (r) => gbp(r.value) },
+      { k: "retail", label: "Retail value", n: true, f: (r) => gbp(r.retail) });
     const value = lines.reduce((s, l) => s + (l.value || 0), 0);
     return `<div class="card"><h2>Stock levels</h2><p class="hint">${lines.length} products${isMgr() ? ` · ${gbp(value)} at cost` : ""}. In stock is the overall figure after sales; Bar and Cellar are from the last stocktake.</p>
       ${tbl("stock", cols, lines, { search: "Search stock…", csv: true, extra: (r) => r.category + " " + r.subcategory })}</div>`;

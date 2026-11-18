@@ -582,3 +582,16 @@ def test_group_combines_brands_for_ordering_and_sells_from_the_open_brand(conn):
     d = db.dashboard(conn, "2026-10-24", "2026-10-24")
     line = next(r for r in d["reorder"] if r.get("group") == "House White")
     assert line["order"] == 3 and not any(r["product_id"] in (7, 8) for r in d["reorder"])
+
+
+def test_retail_value_uses_the_serve_that_sells_most(conn):
+    conn.execute("INSERT INTO sell_prices (token, item, variation, price, product_id, ml) VALUES ('a', 'Vodka', '25ml', 5, 1, 25)")
+    conn.execute("INSERT INTO sell_prices (token, item, variation, price, product_id, ml) VALUES ('b', 'Vodka', 'Bottle', 70, 1, 700)")
+    line = next(l for l in db.stock_lines(conn) if l["product_id"] == 1)
+    assert line["retail"] == 12 * 700 * 5 / 25  # nothing sold yet: the smallest serve
+    db.set_mapping(conn, "vodka|bottle", "Vodka - Bottle", product_id=1, ml=700)
+    db.ingest(conn, [ev("x", item="vodka|bottle", qty=1)], "t")
+    line = next(l for l in db.stock_lines(conn) if l["product_id"] == 1)
+    assert line["retail"] == pytest.approx(11 * 70)  # bottles sell most now, and one has gone
+    lager = next(l for l in db.stock_lines(conn) if l["product_id"] == 3)
+    assert lager["retail"] is None

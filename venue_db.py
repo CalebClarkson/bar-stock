@@ -174,6 +174,7 @@ def stock_lines(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     """One line per product: overall stock now, plus where it was at the last stocktake."""
     out = []
     pars = {r["product_id"]: r["units"] for r in rows(conn, "SELECT * FROM pars")}
+    retail = retail_per_ml(conn)
     for p in rows(conn, "SELECT * FROM products WHERE active = 1 ORDER BY category, subcategory, name, variant"):
         taken = _stocktakes(conn, p["id"], 1)
         units = on_hand_ml(conn, p["id"]) / p["unit_ml"]
@@ -185,6 +186,7 @@ def stock_lines(conn: sqlite3.Connection) -> list[dict[str, Any]]:
             "counted": _figures_at(conn, p["id"], taken[0]) if taken else {l: 0.0 for l in LOCATIONS},
             "par": par, "unit_cost": cost, "value": round(units * cost, 2) if cost is not None else None,
             "below_par": par is not None and units < par, "negative": units < -0.005, "group": p["group_name"],
+            "retail": round(max(units, 0) * p["unit_ml"] * retail[p["id"]], 2) if p["id"] in retail else None,
         })
     return out
 
@@ -975,6 +977,8 @@ def dashboard(conn, start: str, end: str) -> dict[str, Any]:
             "gp_cover_pct": round(costed_takings / takings * 100) if takings > 0 else None,
             "losses": round(sum(l["cost"] for l in losses), 2),
             "stock_value": round(sum(s["value"] or 0 for s in stock.values()), 2),
+            "retail_value": round(sum(s["retail"] or 0 for s in stock.values()), 2),
+            "retail_missing": sum(1 for s in stock.values() if s["retail"] is None and s["units"] > 0.005),
             "below_par": sum(1 for r in reorder if r["par"] is not None and r["units"] < r["par"]),
             "negative": sum(1 for s in stock.values() if s["negative"]),
             "reorder": len(reorder),
@@ -1242,4 +1246,32 @@ def set_group_par(conn, name: str, units) -> None:
     conn.execute("DELETE FROM group_pars WHERE name = ?", (name,))
     if units not in ("", None):
         conn.execute("INSERT INTO group_pars (name, units) VALUES (?, ?)", (name.strip(), float(units)))
+
+
+# ── Retail value of stock ────────────────────────────────────────────────────
+
+def retail_per_ml(conn) -> dict[int, float]:
+    """What a ml of each product takes at the till, VAT included. From the Square catalogue: the serve
+    that sells most, or the smallest serve if none has sold. Failing that, what sales actually took
+    per ml over the last 90 days. Products only used in cocktails have no price of their own."""
+    sold = {r["item_key"]: r["qty"] for r in rows(
+        conn, "SELECT item_key, SUM(qty) qty FROM events WHERE kind = 'sale' GROUP BY item_key")}
+    best: dict[int, tuple[float, float, float]] = {}  # product -> (sold, -ml, price per ml)
+    for r in rows(conn, "SELECT * FROM sell_prices WHERE product_id IS NOT NULL AND ml > 0 AND price > 0"):
+        rank = (sold.get(item_key(r["item"], r["variation"]), 0), -r["ml"])
+        if r["product_id"] not in best or rank > best[r["product_id"]][:2]:
+            best[r["product_id"]] = (*rank, r["price"] / r["ml"])
+    out = {pid: v[2] for pid, v in best.items()}
+    since = (datetime.now() - timedelta(days=90)).isoformat(timespec="seconds")
+    for r in rows(conn, "SELECT m.product_id, m.group_name, m.ml, SUM(e.net) net, SUM(e.qty) qty FROM events e "
+                        "JOIN mappings m ON m.item_key = e.item_key WHERE e.kind = 'sale' AND e.reason = '' AND e.ts >= ? "
+                        "AND m.recipe_id IS NULL AND m.no_stock = 0 GROUP BY m.item_key", since):
+        if not r["qty"] or r["net"] <= 0:
+            continue
+        targets = [r["product_id"]] if r["product_id"] else [p["id"] for p in rows(
+            conn, "SELECT id FROM products WHERE group_name = ? COLLATE NOCASE", r["group_name"] or "\0")]
+        for pid in targets:
+            ml = r["ml"] or conn.execute("SELECT unit_ml FROM products WHERE id = ?", (pid,)).fetchone()[0]
+            out.setdefault(pid, r["net"] / r["qty"] / ml)
+    return out
 
