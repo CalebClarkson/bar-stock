@@ -33,6 +33,7 @@ const ICONS = {
   people: "M15.5 19v-1a4 4 0 0 0-4-4h-5a4 4 0 0 0-4 4v1M9 10.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM21.5 19v-1a4 4 0 0 0-3-3.9M15 3.6a3.5 3.5 0 0 1 0 6.8",
   phone: "M8 2.5h8a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-15a2 2 0 0 1 2-2zM11 18.5h2",
   edit: "M4 20h4L19 9l-4-4L4 16zM14 6l4 4",
+  print: "M7 9V3h10v6M7 17H4v-7h16v7h-3M7 14h10v7H7z",
   plus: "M12 5v14M5 12h14", download: "M12 4v11M7 10l5 5 5-5M5 20h14", chart: "M4 20h16M7 16v-5M12 16V7M17 16v-8",
 };
 const icon = (name, size = 18) => `<svg class="i" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
@@ -370,7 +371,7 @@ function periodBar(d) {
     .map(([k, l]) => `<button class="chip ${period.kind === k ? "on" : ""}" data-period="${k}">${l}</button>`).join("");
   const custom = period.kind === "custom" ? `<input type="date" id="pFrom" value="${esc(d.from)}" style="width:auto;min-height:32px">
     <input type="date" id="pTo" value="${esc(d.to)}" style="width:auto;min-height:32px"><button class="btn small" id="pGo">Show</button>` : "";
-  return `<div class="bar"><span class="label">${esc(label)}${d.nights > 1 ? ` <span class="hint">· ${d.nights} trading nights</span>` : ""}</span><div class="chips">${chips}</div>${custom}</div>`;
+  return `<div class="bar"><span class="label">${esc(label)}${d.nights > 1 ? ` <span class="hint">· ${d.nights} trading nights</span>` : ""}</span><div class="chips">${chips}</div>${custom}${isMgr() ? `<button class="btn ghost small" id="printReport">${icon("print", 16)} Print report</button>` : ""}</div>`;
 }
 
 function change(now, prev) {
@@ -1288,6 +1289,7 @@ const CLICK = {
     catch { toast("Select the link below and copy it."); }
     await render();
   },
+  printReport: async () => printReport(),
   phoneApply: async () => {
     if (!phone.file) throw new Error("Choose the file again");
     const decisions = {};
@@ -1469,6 +1471,38 @@ async function groupsCard() {
       { k: "units", label: "All brands", n: true, f: (g) => units(g.units, g.unit_label) },
       { k: "par", label: "Group par", n: true, f: (g) => `<input class="num" data-gpar="${esc(g.name)}" value="${g.par ?? ""}" inputmode="decimal" aria-label="Group par">` },
     ], groups, { empty: "No groups yet." })}</div>`;
+}
+
+// ── Printable report ─────────────────────────────────────────────────────────
+// A short A4 summary of the period on screen, for reading on paper. Built from the same figures as
+// the dashboard and printed with the browser's own print window (which can also save a PDF).
+
+async function printReport() {
+  const r = periodRange();
+  const d = await get(`/api/venue/dashboard?from=${r.from}&to=${r.to}`);
+  const k = d.kpis, multi = d.by_day.length > 1;
+  const period = d.from === d.to ? day(d.from) : `${day(d.from)} to ${day(d.to)}`;
+  const table = (cols, rows, empty) => rows.length ? `<table><thead><tr>${cols.map(([l, , n]) => `<th class="${n ? "n" : ""}">${l}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map((x) => `<tr>${cols.map(([, f, n]) => `<td class="${n ? "n" : ""}">${f(x)}</td>`).join("")}</tr>`).join("")}</tbody></table>` : `<p class="hint">${empty}</p>`;
+  const tile = (l, v, sub = "") => `<div class="pt"><span>${l}</span><b>${v}</b><small>${sub}</small></div>`;
+  // A logo with light lettering needs its dark backing on white paper, as in a dark header.
+  const logo = brand.logo ? `<img src="/api/venue/branding/logo?v=${encodeURIComponent(brand.v)}" alt="" class="${brand.header === "light" ? "" : "onDark"}">` : "";
+  $("print").innerHTML = `<div class="ph">${logo}<div><h1>${esc(brand.name || "Bar")} stock report</h1><p>${esc(period)}${d.nights > 1 ? ` · ${d.nights} trading nights` : ""} · printed ${esc(when(new Date().toISOString().slice(0, 16)))} by ${esc(me.name)}</p></div></div>
+    <div class="ptiles">${tile("Takings", gbpShort(k.takings), k.prev_takings ? `previous period ${gbpShort(k.prev_takings)}` : "")}
+      ${tile("Drinks sold", num(k.drinks, 0), k.prev_drinks ? `previous period ${num(k.prev_drinks, 0)}` : "")}
+      ${tile("Gross profit", pct(k.gp_pct), k.gp_cover_pct != null && k.gp_cover_pct < 95 ? `on ${k.gp_cover_pct}% of takings with costs` : "after VAT")}
+      ${tile("Losses", gbpShort(k.losses))}${tile("Stock at cost", gbpShort(k.stock_value))}${tile("Stock at till prices", gbpShort(k.retail_value))}
+      ${tile("To order", num(k.reorder, 0), `${k.below_par} below par`)}${tile("Last stocktake", esc(k.last_count ? day(k.last_count) : "never"))}</div>
+    <section><h2>${multi ? "Takings by night" : "Takings through the night"}</h2>${multi
+      ? columnChart(d.by_day, { label: (p) => day(p.day).slice(0, 6), value: (p) => p.takings, tip: () => "" })
+      : columnChart(d.by_hour, { label: (p) => hourLabel(p.hour), value: (p) => p.takings, tip: () => "" })}</section>
+    <div class="pcols"><section><h2>Takings by category</h2>${barList(d.categories, { label: (x) => titleCase(x.category), value: (x) => x.takings, show: gbpShort, tip: () => "", limit: 10 })}</section>
+      <section><h2>Losses</h2>${d.losses.length ? barList(d.losses, { label: (x) => lossName(x.reason), value: (x) => x.cost, show: gbpShort, tip: () => "" }) : `<p class="hint">No losses logged.</p>`}</section></div>
+    <section><h2>Best sellers</h2>${table([["Square item", (x) => esc(x.item)], ["Sold", (x) => num(x.qty, 0), 1], ["Takings", (x) => gbp(x.takings), 1], ["GP", (x) => (x.gp_pct == null ? "-" : pct(x.gp_pct)), 1]], d.items.slice(0, 10), "No sales in this period.")}</section>
+    <section><h2>To order</h2>${table([["Product", (x) => esc(x.label)], ["In stock", (x) => units(x.units, x.unit_label), 1], ["Par", (x) => (x.par == null ? "-" : num(x.par, 1)), 1], ["Lasts", (x) => (x.nights_left == null ? "-" : `${num(x.nights_left, 1)} nights`), 1], ["Order", (x) => (x.order ? units(x.order, x.unit_label) : "-"), 1]], d.reorder.slice(0, 20), "Nothing running low.")}</section>
+    ${d.price_changes.length ? `<section><h2>Price changes</h2>${table([["Item", (x) => esc(x.label)], ["", (x) => (x.kind === "cost" ? "we pay" : "we charge")], ["Was", (x) => gbp(x.old), 1], ["Now", (x) => gbp(x.new), 1]], d.price_changes.slice(0, 15), "")}</section>` : ""}`;
+  await new Promise((res) => setTimeout(res, 300)); // let the logo load
+  window.print();
 }
 
 async function historyCard() {

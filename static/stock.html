@@ -182,6 +182,29 @@ td input.pick{min-width:180px}
 .login .logo{text-align:center;margin-bottom:18px}
 .login .logo img{max-height:80px;max-width:240px}
 .hidden{display:none!important}
+/* Printed report: only #print is shown, always in light colours */
+#print{display:none}
+@media print{
+  @page{size:A4;margin:12mm}
+  body>*:not(#print){display:none!important}
+  #print{display:block;--bg:#fff;--card:#fff;--ink:#14181f;--muted:#5b6270;--line:#d9dde3;--line2:#eceef1;--chart:var(--chart-light);
+    background:#fff;color:#14181f;font-size:10.5pt;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #print .ph{display:flex;align-items:center;gap:14px;border-bottom:2px solid var(--chart);padding-bottom:8px;margin-bottom:10px}
+  #print .ph img{max-height:48px;max-width:180px;padding:6px;border-radius:6px}
+  #print .ph img.onDark{background:#0e1013}
+  #print .ph img:not(.onDark){padding:0}
+  #print h1{font-size:16pt;margin:0}#print .ph p{margin:2px 0 0;color:var(--muted);font-size:9pt}
+  #print h2{font-size:11pt;margin:0 0 6px}
+  #print .ptiles{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:10px}
+  #print .pt{border:1px solid var(--line);border-left:3px solid var(--chart);border-radius:6px;padding:6px 8px}
+  #print .pt span{display:block;font-size:7.5pt;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  #print .pt b{display:block;font-size:14pt}#print .pt small{color:var(--muted);font-size:7.5pt}
+  #print section{break-inside:avoid;margin-bottom:10px}
+  #print .pcols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  #print table{font-size:9pt}#print th,#print td{padding:3px 6px}#print th{background:var(--line2)}
+  #print .cc{padding-left:40px}#print .cc-plot{height:130px;margin-bottom:20px}#print .cc-tick span{left:-40px;width:34px}
+  #print .hb{gap:4px}#print .hb-track{height:10px}
+}
 .steps{margin:4px 0 12px;padding-left:20px;color:var(--muted);font-size:.88rem}.steps li{margin:3px 0}.steps b{color:var(--ink)}
 .dropzone{border:2px dashed var(--line);border-radius:var(--radius);padding:22px;text-align:center;color:var(--muted);margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
 .dropzone.drag{border-color:var(--brand);background:var(--soft)}
@@ -293,6 +316,7 @@ details.astable[open] summary{margin-bottom:8px}
 <datalist id="catList"></datalist>
 <datalist id="subcatList"></datalist>
 <datalist id="groupList"></datalist>
+<div id="print" aria-hidden="true"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <div id="tip" role="tooltip"></div>
 <script src="/static/js/stock.js"></script>
