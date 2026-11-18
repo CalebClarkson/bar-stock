@@ -293,6 +293,7 @@ async function reload() {
   const subs = [...new Set(base.products.map((p) => p.subcategory).filter(Boolean))].sort();
   $("catList").innerHTML = cats.map((c) => `<option value="${esc(c)}"></option>`).join("");
   $("subcatList").innerHTML = subs.map((c) => `<option value="${esc(c)}"></option>`).join("");
+  $("groupList").innerHTML = [...new Set(base.products.map((p) => p.group_name).filter(Boolean))].sort().map((c) => `<option value="${esc(c)}"></option>`).join("");
   await render();
 }
 
@@ -306,6 +307,8 @@ async function loadTargets() {
   const { recipes } = await get("/api/venue/recipes");
   targetByLabel.clear();
   for (const r of recipes.filter((x) => x.active)) targetByLabel.set(`Drink: ${r.name}`, { recipe_id: r.id });
+  for (const g of [...new Set(base.products.map((p) => p.group_name).filter(Boolean))].sort())
+    targetByLabel.set(`Group: ${g} (any brand)`, { group_name: g });
   for (const p of base.products) targetByLabel.set(p.pick, { product_id: p.id });
   $("targetList").innerHTML = [...targetByLabel.keys()].map((k) => `<option value="${esc(k)}"></option>`).join("");
   return recipes;
@@ -448,7 +451,7 @@ const COLS = {
     { k: "in_stock", label: "In stock", n: true, f: (r) => units(r.in_stock, r.unit_label) },
   ],
   reorder: [
-    { k: "label", label: "Product", f: (r) => `${esc(r.label)}<span class="sub">${esc(r.category)}</span>` },
+    { k: "label", label: "Product", f: (r) => `${esc(r.label)}<span class="sub">${r.members ? `${esc(r.members.join(", "))}` : esc(r.category)}</span>` },
     { k: "units", label: "In stock", n: true, f: (r) => `<span class="${r.units < 0 ? "neg" : "low"}">${units(r.units, r.unit_label)}</span>` },
     { k: "par", label: "Par", n: true, f: (r) => (r.par == null ? "-" : num(r.par, 1)) },
     { k: "per_night", label: "Used per night", n: true, f: (r) => (r.per_night ? units(r.per_night, r.unit_label) : "-") },
@@ -900,11 +903,11 @@ const SETTINGS = {
         <td><input class="num" data-mm="${i}" inputmode="decimal" placeholder="whole"></td>
         <td><div class="acts"><button class="btn small" data-map="${i}">Save</button> <button class="btn ghost small" data-newfrom="${i}">New drink</button> <button class="btn ghost small" data-nostock="${i}" title="Food, soda gun and anything else that uses no bar stock">No stock</button></div></td></tr>`).join("")}
       </tbody></table></div></div>` : `<div class="card"><h2>Square buttons</h2><p class="hint">Every Square item that has sold is linked to stock. New ones show up here after an upload.</p></div>`;
-    const targetName = (x) => x.no_stock ? `<span class="hint">uses no stock</span>` : x.recipe ? `Drink: ${esc(x.recipe)}` : esc((productById.get(x.product_id) || {}).label || "?");
+    const targetName = (x) => x.no_stock ? `<span class="hint">uses no stock</span>` : x.group_name ? `Group: ${esc(x.group_name)} (any brand)` : x.recipe ? `Drink: ${esc(x.recipe)}` : esc((productById.get(x.product_id) || {}).label || "?");
     const linked = tbl("mapped", [
       { k: "item_name", label: "Square item" },
       { k: "target", label: "Takes stock from", v: (x) => (x.no_stock ? "no stock" : x.recipe || (productById.get(x.product_id) || {}).label), f: (x) => x.item_key === editKey
-        ? `<input list="targetList" id="reTarget" value="${esc(x.recipe ? "Drink: " + x.recipe : (productById.get(x.product_id) || {}).pick || "")}" class="pick" autocomplete="off">` : targetName(x) },
+        ? `<input list="targetList" id="reTarget" value="${esc(x.group_name ? `Group: ${x.group_name} (any brand)` : x.recipe ? "Drink: " + x.recipe : (productById.get(x.product_id) || {}).pick || "")}" class="pick" autocomplete="off">` : targetName(x) },
       { k: "ml", label: "Per serve", n: true, f: (x) => x.item_key === editKey ? `<input class="num" id="reMl" value="${x.ml ?? ""}" inputmode="decimal" placeholder="whole">` : x.ml ? vol(x.ml) : "" },
       { k: "qty", label: "Sold to date", n: true, f: (x) => num(x.qty || 0, 0) },
       { k: "act", label: "", nosort: true, f: (x) => x.item_key === editKey
@@ -929,7 +932,8 @@ const SETTINGS = {
         { k: "supplier", label: "Supplier" },
         { k: "in_recipes", label: "In drinks", n: true, f: (p) => (p.in_recipes ? num(p.in_recipes, 0) : "") },
         { k: "act", label: "", nosort: true, f: (p) => `<button class="btn ghost small" data-editprod="${p.id}">Edit</button>` },
-      ], list, { search: "Search products…", csv: true, extra: (p) => p.category + " " + p.subcategory })}</div>`;
+      ], list, { search: "Search products…", csv: true, extra: (p) => `${p.category} ${p.subcategory} ${p.group_name || ""}` })}</div>
+      ${await groupsCard()}`;
   },
 
   async deliveries() {
@@ -1093,6 +1097,8 @@ function productEditor() {
     <div class="row">${f("name", "Name", 'placeholder="e.g. House Vodka"')}${f("variant", "Variant (optional)", 'placeholder="e.g. Citron"')}</div>
     <div class="row">${f("unit_label", "Size", 'placeholder="70cl bottle, 50L keg, 330ml can"')}${f("unit_cost", "Cost each £ (ex VAT)", 'inputmode="decimal"')}${f("par", "Par (units to keep)", 'inputmode="decimal"')}</div>
     <div class="row">${f("category", "Category", 'list="catList"')}${f("subcategory", "Type", 'list="subcatList"')}${f("supplier", "Supplier")}</div>
+    <div class="row">${f("group_name", "Group (optional)", 'list="groupList" placeholder="e.g. Pinot Grigio"')}</div>
+    <p class="hint">Brands that are the same thing on the till go in one group, e.g. two Pinot Grigios. The order list then uses their stock together, and a Square button can take stock from the group.</p>
     ${p.id ? `<p class="hint">The size cannot change once a product has been counted or sold, because its stock is held in that size. For a new size, add a new product and archive this one.</p>` : ""}
     <div class="foot">${p.id ? `<button class="btn ghost" id="archProd">${p.active ? "Archive" : "Restore"}</button>` : ""}<span class="sp"></span>
       <button class="btn ghost" id="closeProd2">Cancel</button><button class="btn" id="saveProd">Save</button></div></div>`;
@@ -1308,7 +1314,7 @@ const CLICK = {
   closeProd2: async () => { prodDraft = null; await render(); },
   saveProd: async () => {
     const p = prodDraft, body = {};
-    for (const k of ["name", "variant", "unit_label", "unit_cost", "par", "category", "subcategory", "supplier"]) body[k] = p[k] ?? "";
+    for (const k of ["name", "variant", "unit_label", "unit_cost", "par", "category", "subcategory", "supplier", "group_name"]) body[k] = p[k] ?? "";
     if (p.id) await api(`/api/venue/products/${p.id}`, { method: "PATCH", json: body });
     else await api("/api/venue/products", { json: body });
     toast(`${p.name} saved`);
@@ -1452,6 +1458,17 @@ async function setIgnoreDraft(words) {
   await render();
 }
 
+async function groupsCard() {
+  const { groups } = await get("/api/venue/groups");
+  return `<div class="card"><h2>${icon("stock")} Groups</h2>
+    <p class="hint">Brands of the same thing, counted together for ordering. Put a product in a group from its Edit page. The group's par is what the order list checks; leave it blank to add up the brands' own pars.</p>
+    ${tbl("groups", [
+      { k: "name", label: "Group", f: (g) => `<b>${esc(g.name)}</b><span class="sub">${g.members.map((m) => `${esc(m.label)}: ${num(m.units, 2)}`).join(" · ")}</span>` },
+      { k: "units", label: "All brands", n: true, f: (g) => units(g.units, g.unit_label) },
+      { k: "par", label: "Group par", n: true, f: (g) => `<input class="num" data-gpar="${esc(g.name)}" value="${g.par ?? ""}" inputmode="decimal" aria-label="Group par">` },
+    ], groups, { empty: "No groups yet." })}</div>`;
+}
+
 async function historyCard() {
   const { stocktakes } = await api("/api/venue/stocktakes");
   return `<div class="card"><h2>${icon("count")} Past stocktakes</h2>
@@ -1592,7 +1609,7 @@ document.addEventListener("click", guard(async (e) => {
     else {
       const t = targetByLabel.get(document.querySelector(`[data-mt="${i}"]`).value);
       if (!t) throw new Error("Pick a drink or product from the list");
-      Object.assign(json, t, { ml: t.product_id ? document.querySelector(`[data-mm="${i}"]`).value : null });
+      Object.assign(json, t, { ml: t.recipe_id ? null : document.querySelector(`[data-mm="${i}"]`).value });
     }
     const r = await api("/api/venue/mappings", { json });
     toast(json.no_stock ? "Marked as using no stock" : `Linked. ${r.applied} sales came off stock`);
@@ -1604,7 +1621,7 @@ document.addEventListener("click", guard(async (e) => {
     const x = window._mapped.find((y) => y.item_key === ds.relink);
     const t = targetByLabel.get($("reTarget").value);
     if (!t) throw new Error("Pick a drink or product from the list");
-    await api("/api/venue/mappings", { json: { item_key: x.item_key, item_name: x.item_name, ...t, ml: t.product_id ? $("reMl").value : null } });
+    await api("/api/venue/mappings", { json: { item_key: x.item_key, item_name: x.item_name, ...t, ml: t.recipe_id ? null : $("reMl").value } });
     editKey = null;
     toast("Link changed for future sales");
     return reload();
@@ -1711,6 +1728,10 @@ document.addEventListener("change", guard(async (e) => {
     const p = productById.get(Number(ds.cost));
     if (p) p.unit_cost = el.value === "" ? null : Number(el.value);
     return toast("Cost saved");
+  }
+  if (ds.gpar) {
+    await api("/api/venue/groups/par", { json: { name: ds.gpar, units: el.value } });
+    return toast("Group par saved");
   }
   if (ds.par) {
     await api(`/api/venue/products/${ds.par}`, { method: "PATCH", json: { par: el.value } });

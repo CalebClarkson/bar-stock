@@ -108,6 +108,10 @@ def connect(data_dir: str) -> sqlite3.Connection:
     # Cost at the time of each movement, so a later price change does not rewrite past GP.
     _add_column(conn, "movements", "cost_per_ml", "REAL")
     _add_column(conn, "count_lines", "counted_by", "TEXT NOT NULL DEFAULT ''")
+    # Umbrella groups: brands that are the same thing on the till ("Pinot Grigio") share one stock level.
+    _add_column(conn, "products", "group_name", "TEXT NOT NULL DEFAULT ''")
+    _add_column(conn, "mappings", "group_name", "TEXT NOT NULL DEFAULT ''")
+    conn.execute("CREATE TABLE IF NOT EXISTS group_pars (name TEXT PRIMARY KEY COLLATE NOCASE, units REAL NOT NULL)")
     conn.execute("CREATE TABLE IF NOT EXISTS ignore_words (word TEXT PRIMARY KEY COLLATE NOCASE)")
     conn.execute("CREATE TABLE IF NOT EXISTS adjustments (id INTEGER PRIMARY KEY, entered TEXT NOT NULL, "
                  "effective TEXT NOT NULL, product_id INTEGER NOT NULL REFERENCES products(id), "
@@ -180,7 +184,7 @@ def stock_lines(conn: sqlite3.Connection) -> list[dict[str, Any]]:
             "subcategory": p["subcategory"], "unit_label": p["unit_label"], "units": round(units, 2),
             "counted": _figures_at(conn, p["id"], taken[0]) if taken else {l: 0.0 for l in LOCATIONS},
             "par": par, "unit_cost": cost, "value": round(units * cost, 2) if cost is not None else None,
-            "below_par": par is not None and units < par, "negative": units < -0.005,
+            "below_par": par is not None and units < par, "negative": units < -0.005, "group": p["group_name"],
         })
     return out
 
@@ -301,7 +305,50 @@ def item_key(name: str, variation: str = "") -> str:
     return clean(name) + ("|" + v if v and v != "regular" else "")
 
 
-def serve_lines(conn, mapping: dict[str, Any]) -> list[tuple[int, float]]:
+def group_member(conn, group: str) -> dict[str, Any] | None:
+    """Which brand a sale of a whole group comes off: the one with the fewest left that still has some,
+    so an open run of one brand is used up before the next; if none has stock, the least short."""
+    members = rows(conn, "SELECT * FROM products WHERE active = 1 AND group_name = ? COLLATE NOCASE", group)
+    if not members:
+        return None
+    stock = {m["id"]: on_hand_ml(conn, m["id"]) / m["unit_ml"] for m in members}
+    have = [m for m in members if stock[m["id"]] > 0.005]
+    return min(have, key=lambda m: stock[m["id"]]) if have else max(members, key=lambda m: stock[m["id"]])
+
+
+def group_split(conn, group: str, total_ml: float, serve_ml: float | None) -> list[tuple[int, float]]:
+    """Share a sale of a group across its brands: the open brand first (fewest left that still has some),
+    then the next, and anything beyond the stock there is off the brand that is least short."""
+    members = rows(conn, "SELECT * FROM products WHERE active = 1 AND group_name = ? COLLATE NOCASE", group)
+    if not members:
+        return []
+    stock = {m["id"]: on_hand_ml(conn, m["id"]) for m in members}
+    order = sorted((m for m in members if stock[m["id"]] > 0.5), key=lambda m: stock[m["id"]])
+    need = total_ml if total_ml else (serve_ml or members[0]["unit_ml"])
+    out: list[tuple[int, float]] = []
+    for m in order:
+        take = min(need, stock[m["id"]])
+        if take > 0:
+            out.append((m["id"], take))
+            need -= take
+        if need <= 0.5:
+            return out
+    rest = max(members, key=lambda m: stock[m["id"]]) if not order else order[-1]
+    if out and out[-1][0] == rest["id"]:
+        out[-1] = (rest["id"], out[-1][1] + need)
+    else:
+        out.append((rest["id"], need))
+    return out
+
+
+def serve_lines(conn, mapping: dict[str, Any], qty: float = 1) -> list[tuple[int, float]]:
+    if mapping.get("group_name"):
+        m = group_member(conn, mapping["group_name"])
+        if not m:
+            return []
+        serve = mapping.get("ml") or m["unit_ml"]
+        qty = qty or 1
+        return [(pid, ml / qty) for pid, ml in group_split(conn, mapping["group_name"], serve * qty, serve)]
     if mapping.get("recipe_id"):
         return [(r["product_id"], r["ml"]) for r in rows(
             conn, "SELECT product_id, ml FROM recipe_lines WHERE recipe_id = ?", mapping["recipe_id"])]
@@ -321,7 +368,7 @@ def apply_event(conn, event: dict[str, Any]) -> bool:
     if mapping and mapping["no_stock"]:
         conn.execute("UPDATE events SET status = 'no_stock' WHERE id = ?", (event["id"],))
         return True
-    lines = serve_lines(conn, dict(mapping)) if mapping else []
+    lines = serve_lines(conn, dict(mapping), abs(event["qty"]) or 1) if mapping else []
     if not lines:
         return False
     eid, ts, qty = event["id"], event["ts"], abs(event["qty"])
@@ -395,14 +442,16 @@ def undo_import(conn, import_id: int) -> int:
     return len(ids)
 
 
-def set_mapping(conn, key: str, name: str, recipe_id=None, product_id=None, ml=None, no_stock: bool = False) -> int:
+def set_mapping(conn, key: str, name: str, recipe_id=None, product_id=None, ml=None, no_stock: bool = False,
+                group_name: str = "") -> int:
     """Save a mapping and apply any sales that were waiting for it. no_stock marks items that
     never use stock, such as food or soda from the gun, so they stop waiting for a mapping."""
     conn.execute(
-        "INSERT INTO mappings (item_key, item_name, recipe_id, product_id, ml, no_stock) VALUES (?, ?, ?, ?, ?, ?) "
-        "ON CONFLICT(item_key) DO UPDATE SET item_name = excluded.item_name, recipe_id = excluded.recipe_id, "
-        "product_id = excluded.product_id, ml = excluded.ml, no_stock = excluded.no_stock",
-        (key, name, recipe_id, product_id, ml, int(no_stock)),
+        "INSERT INTO mappings (item_key, item_name, recipe_id, product_id, ml, no_stock, group_name) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(item_key) DO UPDATE SET item_name = excluded.item_name, "
+        "recipe_id = excluded.recipe_id, product_id = excluded.product_id, ml = excluded.ml, "
+        "no_stock = excluded.no_stock, group_name = excluded.group_name",
+        (key, name, recipe_id, product_id, ml, int(no_stock), group_name or ""),
     )
     applied = 0
     for e in rows(conn, "SELECT * FROM events WHERE item_key = ? AND status = 'unmapped'", key):
@@ -673,7 +722,7 @@ def variance_report(conn) -> list[dict[str, Any]]:
 
 # ── Products ─────────────────────────────────────────────────────────────────
 
-PRODUCT_FIELDS = ("name", "variant", "category", "subcategory", "supplier")
+PRODUCT_FIELDS = ("name", "variant", "category", "subcategory", "supplier", "group_name")
 
 
 def set_cost(conn, product_id: int, cost: float | None, source: str = "", user: str = "") -> None:
@@ -875,6 +924,7 @@ def dashboard(conn, start: str, end: str) -> dict[str, Any]:
         conn, f"SELECT m.product_id, SUM(m.ml) ml FROM movements m WHERE m.ts >= ? AND {USE_SQL} "
               "GROUP BY m.product_id", rlo)}
     reorder, idle = [], []
+    groups: dict[str, list[dict[str, Any]]] = {}
     for pid, s in stock.items():
         p = products[pid]
         per_night = recent_use.get(pid, 0) / p["unit_ml"] / recent_nights if recent_nights else 0
@@ -882,11 +932,30 @@ def dashboard(conn, start: str, end: str) -> dict[str, Any]:
         line = {"product_id": pid, "label": s["label"], "category": s["category"], "units": s["units"],
                 "unit_label": p["unit_label"], "par": s["par"], "per_night": round(per_night, 2),
                 "nights_left": None if left is None else round(max(left, 0), 1), "value": s["value"]}
+        if s["units"] > 0 and pid not in recent_use and not p["is_batch"]:
+            idle.append(line)
+        if p["group_name"]:
+            groups.setdefault(p["group_name"].strip(), []).append({**line, "unit_ml": p["unit_ml"]})
+            continue
         if s["below_par"] or (left is not None and left < 3):
             line["order"] = max(0, math.ceil((s["par"] or 0) - s["units"])) if s["par"] is not None else None
             reorder.append(line)
-        if s["units"] > 0 and pid not in recent_use and not p["is_batch"]:
-            idle.append(line)
+    # A group is ordered as one: all its brands' stock together, against the group's par.
+    group_pars = {r["name"].lower(): r["units"] for r in rows(conn, "SELECT * FROM group_pars")}
+    for name, members in groups.items():
+        ref = max(members, key=lambda m: sum(1 for x in members if x["unit_ml"] == m["unit_ml"]))
+        units = sum(m["units"] * m["unit_ml"] for m in members) / ref["unit_ml"]
+        per_night = sum(m["per_night"] * m["unit_ml"] for m in members) / ref["unit_ml"]
+        member_pars = [m["par"] for m in members if m["par"] is not None]
+        par = group_pars.get(name.lower(), sum(member_pars) if member_pars else None)
+        left = units / per_night if per_night > 0 else None
+        if (par is not None and units < par) or (left is not None and left < 3):
+            reorder.append({"product_id": None, "group": name, "label": f"{name} (all brands)",
+                            "members": [m["label"] for m in members], "category": ref["category"],
+                            "units": round(units, 2), "unit_label": ref["unit_label"], "par": par,
+                            "per_night": round(per_night, 2), "nights_left": None if left is None else round(max(left, 0), 1),
+                            "value": round(sum(m["value"] or 0 for m in members), 2),
+                            "order": max(0, math.ceil(par - units)) if par is not None else None})
     reorder.sort(key=lambda x: (x["nights_left"] if x["nights_left"] is not None else 999, x["label"]))
     idle.sort(key=lambda x: -(x["value"] or 0))
 
@@ -906,7 +975,7 @@ def dashboard(conn, start: str, end: str) -> dict[str, Any]:
             "gp_cover_pct": round(costed_takings / takings * 100) if takings > 0 else None,
             "losses": round(sum(l["cost"] for l in losses), 2),
             "stock_value": round(sum(s["value"] or 0 for s in stock.values()), 2),
-            "below_par": sum(1 for s in stock.values() if s["below_par"]),
+            "below_par": sum(1 for r in reorder if r["par"] is not None and r["units"] < r["par"]),
             "negative": sum(1 for s in stock.values() if s["negative"]),
             "reorder": len(reorder),
             "waiting": conn.execute("SELECT COUNT(DISTINCT item_key) FROM events WHERE status = 'unmapped'").fetchone()[0],
@@ -1150,4 +1219,27 @@ def adjustments(conn) -> list[dict[str, Any]]:
         a["label"] = product_label(a)
         a["value"] = None if a["unit_cost"] is None else round(a["change_units"] * a["unit_cost"], 2)
     return out
+
+
+def group_lines(conn) -> list[dict[str, Any]]:
+    """Each umbrella group with its brands, combined stock and par."""
+    pars = {r["name"].lower(): r["units"] for r in rows(conn, "SELECT * FROM group_pars")}
+    out: dict[str, dict[str, Any]] = {}
+    for s in stock_lines(conn):
+        if not s["group"]:
+            continue
+        g = out.setdefault(s["group"].lower(), {"name": s["group"], "members": [], "ml": 0.0})
+        p = conn.execute("SELECT unit_ml FROM products WHERE id = ?", (s["product_id"],)).fetchone()
+        g["members"].append({"label": s["label"], "units": s["units"], "unit_label": s["unit_label"], "unit_ml": p[0]})
+        g["ml"] += s["units"] * p[0]
+    for g in out.values():
+        ref = max(g["members"], key=lambda m: sum(1 for x in g["members"] if x["unit_ml"] == m["unit_ml"]))
+        g.update(units=round(g["ml"] / ref["unit_ml"], 2), unit_label=ref["unit_label"], par=pars.get(g["name"].lower()))
+    return sorted(out.values(), key=lambda g: g["name"].lower())
+
+
+def set_group_par(conn, name: str, units) -> None:
+    conn.execute("DELETE FROM group_pars WHERE name = ?", (name,))
+    if units not in ("", None):
+        conn.execute("INSERT INTO group_pars (name, units) VALUES (?, ?)", (name.strip(), float(units)))
 

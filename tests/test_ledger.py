@@ -567,3 +567,18 @@ def test_adjustment_needs_a_reason_and_keeps_an_audit_trail(conn):
     a = db.adjustments(conn)
     assert [x["change_units"] for x in a] == [-1, 6] and a[1]["user"] == "Boss" and a[1]["before_units"] == 11
     assert db.usage_report(conn, "2026-10-24", "2099-01-01")["totals_ml"]["wastage"] == 0  # not counted as a loss
+
+
+def test_group_combines_brands_for_ordering_and_sells_from_the_open_brand(conn):
+    conn.execute("INSERT INTO products (id, name, unit_label, unit_ml, group_name) VALUES (7, 'Wine A', '75cl bottle', 750, 'House White')")
+    conn.execute("INSERT INTO products (id, name, unit_label, unit_ml, group_name) VALUES (8, 'Wine B', '75cl bottle', 750, 'House White')")
+    db.add_count(conn, "Cellar", {7: 1, 8: 4}, ts="2026-10-23T23:59:00")
+    db.set_group_par(conn, "House White", 6)
+    db.set_mapping(conn, "house white|large", "House White - Large", ml=250, group_name="House White")
+    db.ingest(conn, [ev("a", item="house white|large", qty=4)], "t")  # 1000ml: the last bottle of A, then B
+    assert db.on_hand_ml(conn, 7) == 0 and db.on_hand_ml(conn, 8) == 4 * 750 - 250
+    g = db.group_lines(conn)[0]
+    assert g["name"] == "House White" and g["units"] == pytest.approx(3.67, abs=0.01) and g["par"] == 6
+    d = db.dashboard(conn, "2026-10-24", "2026-10-24")
+    line = next(r for r in d["reorder"] if r.get("group") == "House White")
+    assert line["order"] == 3 and not any(r["product_id"] in (7, 8) for r in d["reorder"])

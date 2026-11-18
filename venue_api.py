@@ -233,7 +233,8 @@ def mappings(conn):
 def mapping_set(conn):
     b = _body()
     applied = db.set_mapping(conn, b["item_key"], b["item_name"], b.get("recipe_id") or None,
-                             b.get("product_id") or None, b.get("ml") or None, bool(b.get("no_stock")))
+                             b.get("product_id") or None, b.get("ml") or None, bool(b.get("no_stock")),
+                             group_name=str(b.get("group_name") or "").strip())
     return jsonify({"applied": applied})
 
 
@@ -241,6 +242,20 @@ def mapping_set(conn):
 @needs("admin")
 def mapping_delete(conn):
     db.delete_mapping(conn, _body()["item_key"])
+    return jsonify({"status": "ok"})
+
+
+@bp.get("/groups")
+@needs("staff")
+def groups(conn):
+    return jsonify({"groups": db.group_lines(conn)})
+
+
+@bp.post("/groups/par")
+@needs("admin")
+def group_par(conn):
+    b = _body()
+    db.set_group_par(conn, str(b.get("name") or ""), b.get("units"))
     return jsonify({"status": "ok"})
 
 
