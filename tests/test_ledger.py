@@ -553,3 +553,17 @@ def test_phone_count_adds_several_new_items_and_takes_decisions(conn):
     assert r["added"] == ["Kiwi Syrup (70cl bottle)", "Melon Syrup (70cl bottle)"] and not r["new"]
     r = db.phone_count(conn, {**data, "new": data["new"][:2]})  # the same items again match what was just added
     assert not r["added"] and not r["new"] and r["filled"]["Bar"] == 2
+
+
+def test_adjustment_needs_a_reason_and_keeps_an_audit_trail(conn):
+    db.ingest(conn, [ev("a", qty=28)], "t")  # 700ml sold: 11 bottles left
+    with pytest.raises(ValueError):
+        db.adjust_stock(conn, 1, 17, "set", "", user="Boss")
+    with pytest.raises(ValueError):
+        db.adjust_stock(conn, 1, 17, "set", "Rung through the wrong button", "2026-10-01T12:00:00")  # before the stocktake
+    r = db.adjust_stock(conn, 1, 17, "set", "Rung through the wrong button", user="Boss")
+    assert r == {"before": 11, "change": 6, "after": 17} and db.on_hand_ml(conn, 1) == 17 * 700
+    db.adjust_stock(conn, 1, -1, "change", "Broken bottle found", "2026-10-25T10:00:00", "Boss")
+    a = db.adjustments(conn)
+    assert [x["change_units"] for x in a] == [-1, 6] and a[1]["user"] == "Boss" and a[1]["before_units"] == 11
+    assert db.usage_report(conn, "2026-10-24", "2099-01-01")["totals_ml"]["wastage"] == 0  # not counted as a loss

@@ -109,6 +109,10 @@ def connect(data_dir: str) -> sqlite3.Connection:
     _add_column(conn, "movements", "cost_per_ml", "REAL")
     _add_column(conn, "count_lines", "counted_by", "TEXT NOT NULL DEFAULT ''")
     conn.execute("CREATE TABLE IF NOT EXISTS ignore_words (word TEXT PRIMARY KEY COLLATE NOCASE)")
+    conn.execute("CREATE TABLE IF NOT EXISTS adjustments (id INTEGER PRIMARY KEY, entered TEXT NOT NULL, "
+                 "effective TEXT NOT NULL, product_id INTEGER NOT NULL REFERENCES products(id), "
+                 "before_units REAL NOT NULL, change_units REAL NOT NULL, after_units REAL NOT NULL, "
+                 "reason TEXT NOT NULL, user TEXT NOT NULL)")
     conn.execute("CREATE TABLE IF NOT EXISTS price_history (id INTEGER PRIMARY KEY, ts TEXT NOT NULL, "
                  "kind TEXT NOT NULL, ref TEXT NOT NULL, label TEXT NOT NULL, old REAL, new REAL, "
                  "source TEXT NOT NULL DEFAULT '', user TEXT NOT NULL DEFAULT '')")
@@ -1105,4 +1109,45 @@ def set_ignore_words(conn, words: list[str]) -> dict[str, int]:
             conn.execute("DELETE FROM count_drafts WHERE product_id = ?", (p["id"],))
             removed["products"] += 1
     return {"words": len(clean), **removed}
+
+
+# ── Manual stock adjustments (admins only, always with a reason) ──────────────
+
+def adjust_stock(conn, product_id: int, units: float, mode: str, reason: str, effective: str = "",
+                 user: str = "") -> dict[str, Any]:
+    """Correct a product's stock outside a stocktake, e.g. after sales were rung through the wrong button.
+    mode "set" corrects the stock to `units`; mode "change" adds (or with a minus, removes) `units`.
+    Every adjustment is a movement, so it shows in reports, and a line in the audit trail."""
+    reason = re.sub(r"\s+", " ", reason or "").strip()
+    if len(reason) < 3:
+        raise ValueError("Give a reason for the adjustment")
+    p = conn.execute("SELECT * FROM products WHERE id = ?", (product_id,)).fetchone()
+    if not p:
+        raise ValueError("Pick a product")
+    when = datetime.fromisoformat(effective) if effective else datetime.now()
+    if when > datetime.now():
+        raise ValueError("The adjustment date is in the future")
+    effective = when.isoformat(timespec="seconds")
+    taken = _stocktakes(conn, product_id, 1)
+    if taken and effective <= taken[0]:
+        raise ValueError(f"That date is before this product's last stocktake ({taken[0][:16].replace('T', ' ')}), "
+                         "which already reset its stock")
+    before = on_hand_ml(conn, product_id) / p["unit_ml"]
+    change = float(units) - before if mode == "set" else float(units)
+    if abs(change) < 0.0001:
+        raise ValueError("That is already the stock figure")
+    _move(conn, effective, product_id, change * p["unit_ml"], "adjust", ref="adjustment", note=reason, user=user)
+    conn.execute("INSERT INTO adjustments (entered, effective, product_id, before_units, change_units, after_units, reason, user) "
+                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                 (now(), effective, product_id, round(before, 3), round(change, 3), round(before + change, 3), reason, user))
+    return {"before": round(before, 2), "change": round(change, 2), "after": round(before + change, 2)}
+
+
+def adjustments(conn) -> list[dict[str, Any]]:
+    out = rows(conn, "SELECT a.*, p.name, p.variant, p.unit_label, p.unit_cost FROM adjustments a "
+                     "JOIN products p ON p.id = a.product_id ORDER BY a.id DESC")
+    for a in out:
+        a["label"] = product_label(a)
+        a["value"] = None if a["unit_cost"] is None else round(a["change_units"] * a["unit_cost"], 2)
+    return out
 

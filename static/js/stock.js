@@ -32,6 +32,7 @@ const ICONS = {
   reset: "M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4",
   people: "M15.5 19v-1a4 4 0 0 0-4-4h-5a4 4 0 0 0-4 4v1M9 10.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM21.5 19v-1a4 4 0 0 0-3-3.9M15 3.6a3.5 3.5 0 0 1 0 6.8",
   phone: "M8 2.5h8a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-15a2 2 0 0 1 2-2zM11 18.5h2",
+  edit: "M4 20h4L19 9l-4-4L4 16zM14 6l4 4",
   plus: "M12 5v14M5 12h14", download: "M12 4v11M7 10l5 5 5-5M5 20h14", chart: "M4 20h16M7 16v-5M12 16V7M17 16v-8",
 };
 const icon = (name, size = 18) => `<svg class="i" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICONS[name]}"/></svg>`;
@@ -700,7 +701,7 @@ let batchState = { id: null, runs: "1", made: "" };
 const SECTIONS = [
   ["drinks", "Drinks & specials", "drinks"], ["square", "Square buttons", "link"], ["products", "Products", "stock"],
   ["deliveries", "Deliveries", "truck"], ["prices", "Prices", "tag"], ["imports", "Sales uploads", "upload"],
-  ["branding", "Look & feel", "palette"], ["people", "People", "people"],
+  ["adjust", "Stock adjustments", "edit"], ["branding", "Look & feel", "palette"], ["people", "People", "people"],
 ];
 
 async function settingsView() {
@@ -788,7 +789,38 @@ function miniPreview(st) {
 
 const SWATCHES = ["#c9a227", "#1f6b5c", "#0f766e", "#1d4ed8", "#4338ca", "#7c3aed", "#be185d", "#b91c1c", "#c2410c", "#a16207", "#334155"];
 
+let adj = { product: "", mode: "set", units: "", effective: "", reason: "" };
+
 const SETTINGS = {
+  async adjust() {
+    const { adjustments } = await get("/api/venue/adjustments");
+    const p = productByLabel.get(adj.product);
+    const line = p && base.stock.find((l) => l.product_id === p.id);
+    const now = line ? Number(line.units) : null;
+    const after = now == null || adj.units === "" ? null : adj.mode === "set" ? Number(adj.units) : now + Number(adj.units);
+    return `<div class="card" style="max-width:980px"><h2>${icon("edit")} Stock adjustments</h2>
+      <p class="hint">Correct a product's stock outside a stocktake, for example when sales were rung through the wrong button. Every adjustment needs a reason and is kept below with the date, who made it and the figures before and after. Only admins can make them.</p>
+      <div class="row"><label>Product<input id="adjP" list="productList" value="${esc(adj.product)}" placeholder="Start typing a product" autocomplete="off"></label></div>
+      ${line ? `<p class="hint" style="margin:0">In stock now: <b>${units(now, line.unit_label)}</b></p>` : ""}
+      <div class="row"><div class="seg" style="margin:0">${[["set", "Correct it to"], ["change", "Add or remove"]].map(([k, l]) => `<button data-adjmode="${k}" class="${adj.mode === k ? "on" : ""}">${l}</button>`).join("")}</div>
+        <label style="flex:0 1 180px">${adj.mode === "set" ? "Actual stock" : "Change (minus to remove)"}<input id="adjU" value="${esc(adj.units)}" inputmode="decimal" placeholder="${adj.mode === "set" ? "e.g. 17" : "e.g. 6 or -2"}"></label>
+        <label style="flex:0 1 230px">Date of the adjustment<input id="adjD" type="datetime-local" value="${esc(adj.effective)}"></label></div>
+      ${after != null && !isNaN(after) ? `<p class="hint" style="margin:0">This makes it <b>${units(after, line.unit_label)}</b> (${after - now >= 0 ? "+" : ""}${num(after - now, 2)}).</p>` : ""}
+      <div class="row"><label>Reason (required)<input id="adjR" value="${esc(adj.reason)}" maxlength="200" placeholder="e.g. Glasses of another prosecco rung through this button, 1st to 14th Oct"></label></div>
+      <div class="foot"><span class="sp"></span><button class="btn" id="adjGo">${icon("done", 16)} Make the adjustment</button></div></div>
+      <div class="card"><h2>Audit trail</h2><p class="hint">Every manual adjustment, newest first. Download it as a CSV for the end of the financial year.</p>
+      ${tbl("adjustments", [
+        { k: "effective", label: "Date", f: (r) => esc(when(r.effective)) },
+        { k: "label", label: "Product" },
+        { k: "before_units", label: "Before", n: true, f: (r) => num(r.before_units, 2) },
+        { k: "change_units", label: "Change", n: true, f: (r) => `<b>${r.change_units > 0 ? "+" : ""}${num(r.change_units, 2)}</b>` },
+        { k: "after_units", label: "After", n: true, f: (r) => num(r.after_units, 2) },
+        { k: "value", label: "Value", n: true, f: (r) => gbp(r.value) },
+        { k: "reason", label: "Reason" }, { k: "user", label: "By" },
+        { k: "entered", label: "Entered", f: (r) => esc(when(r.entered)) },
+      ], adjustments, { search: "Search…", csv: true, empty: "No adjustments yet." })}</div>`;
+  },
+
   async branding() {
     const color = brand.color || "#1f6b5c";
     const logo = brand.logo ? `/api/venue/branding/logo?v=${encodeURIComponent(brand.v)}` : "";
@@ -1211,6 +1243,17 @@ const CLICK = {
     await loadBranding();
     await render();
   },
+  adjGo: async () => {
+    const p = productByLabel.get(adj.product);
+    if (!p) throw new Error("Pick the product from the list");
+    if (adj.units === "" || isNaN(Number(adj.units))) throw new Error("Give the figure");
+    if (adj.reason.trim().length < 3) throw new Error("Give a reason");
+    if (!confirm(`Adjust ${p.label}? This is recorded with your name and the reason.`)) return;
+    const r = await api("/api/venue/adjustments", { json: { product_id: p.id, units: adj.units, mode: adj.mode, reason: adj.reason, effective: adj.effective } });
+    toast(`Adjusted: ${num(r.before, 2)} to ${num(r.after, 2)}`);
+    adj = { product: "", mode: adj.mode, units: "", effective: "", reason: "" };
+    await reload();
+  },
   ignoreAdd: async () => {
     const w = $("ignoreWord").value.trim();
     if (w.length < 2) throw new Error("A code needs at least 2 characters");
@@ -1594,6 +1637,7 @@ document.addEventListener("click", guard(async (e) => {
     toast("Linked");
     return reload();
   }
+  if (ds.adjmode) { adj.mode = ds.adjmode; adj.units = ""; return render(); }
   if (ds.rmword !== undefined) {
     const cur = [...(ignoreDraft ?? (await get("/api/venue/ignore")).words)];
     cur.splice(Number(ds.rmword), 1);
@@ -1687,6 +1731,8 @@ document.addEventListener("change", guard(async (e) => {
   }
   if (ds.lm !== undefined && draft) { draft.lines[ds.lm].ml = el.value; return render(); }
   if (el.id === "wP") { waste.product = el.value; return render(); }
+  if (el.id === "adjP") { adj.product = el.value; return render(); }
+  if (el.id === "adjU") { adj.units = el.value; return render(); }
   if (el.id === "bR") { batchState = { id: el.value, runs: batchState.runs, made: "" }; return render(); }
   if (el.id === "bN") { batchState.runs = el.value; return render(); }
   if (el.id === "bMade") { batchState.made = el.value; return render(); }
@@ -1699,6 +1745,8 @@ document.addEventListener("input", (e) => {
   if (ds.tsearch) { TB[ds.tsearch].q = el.value; TB[ds.tsearch].all = false; return redrawTable(ds.tsearch); }
   if (ds.df && draft) { draft[ds.df] = el.value; return; }
   if (ds.pf && prodDraft) { prodDraft[ds.pf] = el.value; return; }
+  const amap = { adjU: "units", adjD: "effective", adjR: "reason" };
+  if (amap[el.id]) { adj[amap[el.id]] = el.value; return; }
   const wmap = { wOther: "other", wP: "product", wM: "amount", wN: "note" };
   if (wmap[el.id]) { waste[wmap[el.id]] = el.value; return; }
   if (el.id === "bColor") { document.documentElement.style.setProperty("--brand", el.value); return; }

@@ -244,6 +244,20 @@ def mapping_delete(conn):
     return jsonify({"status": "ok"})
 
 
+@bp.get("/adjustments")
+@needs("manager")
+def adjustments_list(conn):
+    return jsonify({"adjustments": db.adjustments(conn)})
+
+
+@bp.post("/adjustments")
+@needs("admin")
+def adjustment_add(conn):
+    b = _body()
+    return jsonify(db.adjust_stock(conn, int(b.get("product_id") or 0), float(b.get("units")), b.get("mode", "set"),
+                                   b.get("reason", ""), b.get("effective") or "", _who()))
+
+
 @bp.get("/ignore")
 @needs("manager")
 def ignore_get(conn):
