@@ -50,6 +50,8 @@ main{padding:6px 10px calc(96px + var(--safe-b))}
 .item.done .step{border-color:transparent}
 .qty{width:62px;height:44px;text-align:center;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:1.1rem;font-weight:700;flex:0 0 auto}
 .qty:focus{outline:2px solid var(--brand);border-color:transparent}
+.qty::placeholder{color:var(--muted);opacity:.45;font-weight:500}
+.qty:focus::placeholder{opacity:.25}
 .add{width:100%;background:none;border:1.5px dashed var(--line);border-radius:var(--r);padding:11px;color:var(--muted);font-weight:600;margin:2px 0 6px}
 .empty{text-align:center;color:var(--muted);padding:30px 10px}
 /* Bottom */
@@ -89,7 +91,7 @@ main{padding:6px 10px calc(96px + var(--safe-b))}
   </ol>
   <textarea id="pasteLink" placeholder="Paste the link from the PC here" autocapitalize="off" autocorrect="off" spellcheck="false"></textarea>
   <button class="btn" id="loadLink" style="width:100%">Load the product list</button>
-  <p style="color:var(--muted);font-size:.85rem;margin-top:18px">Tip: add this page to your home screen (Share &gt; Add to Home Screen on iPhone, or the browser menu &gt; Add to Home screen on Android). It then works like an app, even with no signal.</p>
+  <p style="color:var(--muted);font-size:.85rem;margin-top:18px">Faded numbers in the boxes are the last stocktake's figures, as a guide. Tip: add this page to your home screen (Share &gt; Add to Home Screen on iPhone, or the browser menu &gt; Add to Home screen on Android). It then works like an app, even with no signal.</p>
 </div>
 
 <div id="app" class="hidden">
@@ -199,7 +201,7 @@ function render() {
         const v = mine[p[0]];
         html += `<div class="item ${v != null ? "done" : ""}"><div class="nm"><b>${esc(p[1])}</b><span>${esc(p[3])}</span></div>
           <button class="step" data-dec="${p[0]}" aria-label="One less">&minus;</button>
-          <input class="qty" data-id="${p[0]}" inputmode="decimal" value="${fmt(v)}" aria-label="Count for ${esc(p[1])}">
+          <input class="qty" data-id="${p[0]}" inputmode="decimal" value="${fmt(v)}" placeholder="${ghost(p)}" aria-label="Count for ${esc(p[1])}${ghost(p) ? `, last time ${ghost(p)}` : ""}">
           <button class="step" data-inc="${p[0]}" aria-label="One more">+</button></div>`;
       } else {
         const i = count.new.indexOf(p);
@@ -214,6 +216,9 @@ function render() {
   if (!shown) html = `<div class="empty">Nothing matches "${esc(query)}".<br><br><button class="add" data-addcat="">+ Add "${esc(query)}" as a new item</button></div>`;
   $("list").innerHTML = html;
 }
+
+/** Last stocktake's figure for this place, shown faded in the empty box. Typing replaces it. */
+const ghost = (p) => { const v = p[loc === "Bar" ? 4 : 5]; return v == null ? "" : fmt(v); };
 
 function setCount(id, value) {
   const mine = count[loc];

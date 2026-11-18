@@ -1,5 +1,5 @@
 // Keeps the stocktake page working with no signal (cellars). It caches only this page's own files.
-const CACHE = "stocktake-v1";
+const CACHE = "stocktake-v2";
 const FILES = ["./", "index.html", "manifest.webmanifest", "icon.svg", "icon-180.png", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", (e) => e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)).then(() => self.skipWaiting())));
 self.addEventListener("activate", (e) => e.waitUntil(

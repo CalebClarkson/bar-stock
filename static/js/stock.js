@@ -1483,7 +1483,9 @@ async function historyCard() {
 }
 
 async function phoneLinkFor() {
-  const products = base.stock.map((l) => [l.product_id, l.label.replace(/ \([^)]*\)$/, ""), l.category || "Other", l.unit_label]);
+  // The last Bar and Cellar counts ride along, shown faded on the phone as a guide.
+  const products = base.stock.map((l) => [l.product_id, l.label.replace(/ \([^)]*\)$/, ""), l.category || "Other", l.unit_label,
+    Number(l.counted.Bar) || 0, Number(l.counted.Cellar) || 0]);
   const data = { kind: "bar-stock-list", v: 1, made: new Date().toISOString(), venue: brand.name || "", color: brand.color || "", products };
   const stream = new Blob([JSON.stringify(data)]).stream().pipeThrough(new CompressionStream("deflate-raw"));
   const buf = new Uint8Array(await new Response(stream).arrayBuffer());
