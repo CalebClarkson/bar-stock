@@ -927,14 +927,18 @@ def _units(v: Any) -> float:
     return u
 
 
-def phone_count(conn, data: dict[str, Any], add_new: bool = False, user: str = "") -> dict[str, Any]:
+def phone_count(conn, data: dict[str, Any], add_new: bool = False, user: str = "",
+                decisions: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
     """Fill the open stocktake from a phone count file. Only what was counted on the phone is filled in, so
-    two phones (say Bar and Cellar) can each send their part. New items are listed, and only become
-    products when add_new is set, so nobody creates a duplicate by accident."""
+    two phones (say Bar and Cellar) can each send their part. A new item that matches a product by name and
+    size fills that product in. Anything else is listed for a decision, keyed by its position in the file:
+    {"action": "add"} makes it a product, {"action": "match", "product_id": n} counts it as that product,
+    {"action": "skip"} leaves it out. add_new adds every item without a decision."""
     import venue_import
 
     if not isinstance(data, dict) or data.get("kind") != "bar-stock-count":
         raise ValueError("That is not a count file from the phone page")
+    decisions = decisions or {}
     who = str(data.get("by") or "").strip()[:40]
     who = f"{who} (phone)" if who else (user or "phone")
     active = {r["id"]: r for r in rows(conn, "SELECT * FROM products WHERE active = 1")}
@@ -948,18 +952,30 @@ def phone_count(conn, data: dict[str, Any], add_new: bool = False, user: str = "
                 continue
             save_draft(conn, loc, pid, units, who)
             filled[loc] += 1
-    new, added = [], []
-    for item in data.get("new") or []:
+    new, added, left_out = [], [], []
+    for i, item in enumerate(data.get("new") or []):
         loc = item.get("loc")
         name = re.sub(r"\s+", " ", str(item.get("name") or "")).strip()[:80]
         size = str(item.get("size") or "").strip()[:40]
         if loc not in LOCATIONS or not name:
             continue
         units = _units(item.get("units") or 0)
+        entry = {"i": i, "loc": loc, "name": name, "size": size, "units": units}
+        choice = decisions.get(str(i)) or ({"action": "add"} if add_new else {})
+        if choice.get("action") == "skip":
+            left_out.append(f"{name} ({size})")
+            continue
+        if choice.get("action") == "match":
+            pid = int(choice.get("product_id") or 0)
+            if pid not in active:
+                raise ValueError(f"Pick a product for {name}")
+            save_draft(conn, loc, pid, units, who)
+            filled[loc] += 1
+            continue
         try:
             unit_ml, _ = venue_import.parse_unit(size)
         except ValueError:
-            new.append({"loc": loc, "name": name, "size": size, "units": units, "why": "Size not understood, e.g. 70cl bottle"})
+            new.append({**entry, "why": "Size not understood, e.g. 70cl bottle"})
             continue
         same = next((p for p in active.values() if p["unit_ml"] == unit_ml and name.lower() in
                      (p["name"].lower(), f"{p['name']} {p['variant']}".strip().lower(), product_label(p).lower())), None)
@@ -967,16 +983,16 @@ def phone_count(conn, data: dict[str, Any], add_new: bool = False, user: str = "
             save_draft(conn, loc, same["id"], units, who)
             filled[loc] += 1
             continue
-        if not add_new:
-            new.append({"loc": loc, "name": name, "size": size, "units": units, "why": "Not a product yet"})
+        if choice.get("action") != "add":
+            new.append({**entry, "why": "Not a product yet"})
             continue
         pid = save_product(conn, {"name": name, "unit_label": size, "category": str(item.get("category") or "")[:40]},
                            user=user)
-        active[pid] = conn.execute("SELECT * FROM products WHERE id = ?", (pid,)).fetchone()
+        active[pid] = dict(conn.execute("SELECT * FROM products WHERE id = ?", (pid,)).fetchone())
         save_draft(conn, loc, pid, units, who)
         filled[loc] += 1
         added.append(f"{name} ({size})")
-    return {"filled": filled, "skipped": skipped, "new": new, "added": added, "by": who}
+    return {"filled": filled, "skipped": skipped, "new": new, "added": added, "left_out": left_out, "by": who}
 
 
 # ── Stocktake history and undo ───────────────────────────────────────────────

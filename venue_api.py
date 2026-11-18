@@ -142,7 +142,8 @@ def count_clear(conn):
 def count_phone(conn):
     """Fill the count from a phone's count file. Stock changes only when the count is finished."""
     b = _body()
-    return jsonify(db.phone_count(conn, b.get("file") or {}, add_new=bool(b.get("add_new")), user=_who()))
+    return jsonify(db.phone_count(conn, b.get("file") or {}, add_new=bool(b.get("add_new")), user=_who(),
+                                  decisions=b.get("decisions") or {}))
 
 
 @bp.post("/usage")

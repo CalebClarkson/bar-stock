@@ -1237,11 +1237,20 @@ const CLICK = {
     catch { toast("Select the link below and copy it."); }
     await render();
   },
-  phoneNew: async () => {
+  phoneApply: async () => {
     if (!phone.file) throw new Error("Choose the file again");
-    if (!confirm("Add every new item from the phone as a product and fill in its count?")) return;
-    await importPhone(phone.file, true);
+    const decisions = {};
+    for (const sel of document.querySelectorAll("[data-nchoice]")) {
+      const i = sel.dataset.nchoice;
+      if (sel.value === "match") {
+        const p = productByLabel.get(document.querySelector(`[data-nmatch="${i}"]`).value);
+        if (!p) throw new Error("Pick the product from the list for each item marked \"It's this product\"");
+        decisions[i] = { action: "match", product_id: p.id };
+      } else decisions[i] = { action: sel.value };
+    }
+    await importPhone(phone.file, false, decisions);
   },
+  phoneDismiss: async () => { phone = { ...phone, file: null, result: null }; await render(); },
   styleReset: async () => {
     if (!confirm("Go back to the original look? Your logo and name stay.")) return;
     await api("/api/venue/branding", { json: { reset_style: true } });
@@ -1429,10 +1438,17 @@ function phoneCard() {
       <b>Filled in from ${esc(r.by)}:</b> Bar ${r.filled.Bar}, Cellar ${r.filled.Cellar}.
       ${r.added.length ? `<br>Added as new products: ${r.added.map(esc).join(", ")}.` : ""}
       ${r.skipped.length ? `<br>Skipped (no longer stocked): ${r.skipped.map(esc).join(", ")}.` : ""}
-      ${r.new.length ? `<h3>New items from the phone (${r.new.length})</h3><div class="scroll"><table><thead><tr><th>Where</th><th>Item</th><th>Size</th><th class="n">Count</th><th></th></tr></thead><tbody>
-        ${r.new.map((n) => `<tr><td>${esc(n.loc)}</td><td>${esc(n.name)}</td><td>${esc(n.size)}</td><td class="n">${num(n.units, 2)}</td><td class="hint">${esc(n.why)}</td></tr>`).join("")}</tbody></table></div>
-        <p class="hint">Check none of these is already a product under another name; if one is, type its count in below instead.</p>
-        ${isAdmin() || canDo("count") ? `<button class="btn ghost" id="phoneNew">${icon("plus", 16)} Add them as new products</button>` : ""}` : ""}</div>` : "";
+      ${r.left_out?.length ? `<br>Left out: ${r.left_out.map(esc).join(", ")}.` : ""}
+      ${r.new.length ? `<h3>New items from the phone (${r.new.length})</h3>
+        <p class="hint">For each one, choose whether it is new, or a product you already have (for example one added by hand), or should be left out.</p>
+        <div class="scroll"><table><thead><tr><th>Where</th><th>Item</th><th class="n">Count</th><th>What is it?</th></tr></thead><tbody>
+        ${r.new.map((n) => `<tr><td>${esc(n.loc)}</td><td><b>${esc(n.name)}</b><span class="sub">${esc(n.size)}${n.why !== "Not a product yet" ? ` · ${esc(n.why)}` : ""}</span></td><td class="n">${num(n.units, 2)}</td>
+          <td><div class="acts" style="justify-content:flex-start"><select data-nchoice="${n.i}" style="max-width:190px">
+            <option value="add" ${n.why === "Not a product yet" ? "" : "disabled"}>Add as a new product</option><option value="match">It's this product…</option><option value="skip">Leave it out</option></select>
+            <input list="productList" data-nmatch="${n.i}" class="pick hidden" placeholder="Start typing a product" autocomplete="off"></div></td></tr>`).join("")}</tbody></table></div>
+        <div class="foot" style="border:0;padding-top:4px"><button class="btn ghost" id="phoneDismiss">Dismiss</button><span class="sp"></span>
+        <button class="btn" id="phoneApply">${icon("done", 16)} Apply these choices</button></div>`
+      : `<div class="foot" style="border:0;padding-top:4px"><span class="sp"></span><button class="btn ghost small" id="phoneDismiss">Dismiss</button></div>`}</div>` : "";
   return `<div class="card"><h2>${icon("phone")} Count on a phone</h2>
     <ol class="steps"><li><b>Copy phone link</b>, email or message it to your phone, open it and add it to the home screen. Only needed once, and again when products change.</li>
       <li>Count on the phone, then press <b>Send to PC</b> and email the file here.</li>
@@ -1443,10 +1459,10 @@ function phoneCard() {
     ${res}</div>`;
 }
 
-async function importPhone(file, addNew = false) {
+async function importPhone(file, addNew = false, decisions = {}) {
   let data;
   try { data = JSON.parse(await file.text()); } catch { throw new Error("That file is not a count from the phone page"); }
-  const r = await api("/api/venue/count/phone", { json: { file: data, add_new: addNew } });
+  const r = await api("/api/venue/count/phone", { json: { file: data, add_new: addNew, decisions } });
   phone = { ...phone, file, result: r };
   toast(`Filled in ${r.filled.Bar + r.filled.Cellar} counts from ${r.by}${r.new.length ? `, ${r.new.length} new items to check` : ""}`);
   if (addNew) await reload(); else await render();
@@ -1634,6 +1650,7 @@ document.addEventListener("change", guard(async (e) => {
     return render();
   }
   if (el.id === "bColor") return setColour(el.value);
+  if (ds.nchoice) { document.querySelector(`[data-nmatch="${ds.nchoice}"]`).classList.toggle("hidden", el.value !== "match"); return; }
   if (ds.role) {
     await api(`/api/people/${ds.role}`, { method: "PATCH", json: { role: el.value } });
     toast("Role changed");
