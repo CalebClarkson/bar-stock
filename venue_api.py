@@ -186,6 +186,8 @@ def dashboard(conn):
     if start > end:
         start, end = end, start
     out = db.dashboard(conn, start, end)
+    if _ctx["has_role"]("admin"):
+        out["kpis"]["par_suggestions"] = len(db.par_suggestions(conn)["lines"])
     if not _ctx["has_role"]("manager"):
         # Staff see what to count and restock, not takings or margins.
         out = {"from": out["from"], "to": out["to"], "nights": out["nights"], "reorder": out["reorder"],
@@ -257,6 +259,23 @@ def group_par(conn):
     b = _body()
     db.set_group_par(conn, str(b.get("name") or ""), b.get("units"))
     return jsonify({"status": "ok"})
+
+
+@bp.get("/pars/suggestions")
+@needs("manager")
+def par_suggestions(conn):
+    return jsonify(db.par_suggestions(conn))
+
+
+@bp.post("/pars/suggestions")
+@needs("admin")
+def par_decide(conn):
+    b = _body()
+    if "cover" in b:
+        if float(b["cover"]) not in (1, 2):
+            raise ValueError("Cover is one or two weeks")
+        db.set_meta(conn, "par_cover_weeks", str(float(b["cover"])))
+    return jsonify({"applied": db.decide_pars(conn, b.get("accept") or {}, b.get("reject") or {})})
 
 
 @bp.get("/adjustments")

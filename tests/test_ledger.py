@@ -595,3 +595,17 @@ def test_retail_value_uses_the_serve_that_sells_most(conn):
     assert line["retail"] == pytest.approx(11 * 70)  # bottles sell most now, and one has gone
     lager = next(l for l in db.stock_lines(conn) if l["product_id"] == 3)
     assert lager["retail"] is None
+
+
+def test_par_suggestions_follow_weekly_use_and_remember_rejections(conn):
+    from datetime import datetime, timedelta
+    db.ingest(conn, [{**ev(f"s{i}", qty=28), "ts": (datetime.now() - timedelta(days=i * 7)).isoformat(timespec="seconds")}
+                     for i in range(5)], "t")  # a bottle of vodka a week for five weeks
+    conn.execute("INSERT INTO pars (product_id, location, units) VALUES (1, 'All', 10)")
+    s = db.par_suggestions(conn)
+    line = next(l for l in s["lines"] if l["key"] == "p:1")
+    assert line["par"] == 10 and line["suggested"] == 2  # about 1.25 a week with the buffer
+    db.decide_pars(conn, {}, {"p:1": 2})
+    assert not any(l["key"] == "p:1" for l in db.par_suggestions(conn)["lines"])
+    db.decide_pars(conn, {"p:1": 2}, {})
+    assert conn.execute("SELECT units FROM pars WHERE product_id = 1").fetchone()[0] == 2

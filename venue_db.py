@@ -112,6 +112,7 @@ def connect(data_dir: str) -> sqlite3.Connection:
     _add_column(conn, "products", "group_name", "TEXT NOT NULL DEFAULT ''")
     _add_column(conn, "mappings", "group_name", "TEXT NOT NULL DEFAULT ''")
     conn.execute("CREATE TABLE IF NOT EXISTS group_pars (name TEXT PRIMARY KEY COLLATE NOCASE, units REAL NOT NULL)")
+    conn.execute("CREATE TABLE IF NOT EXISTS par_dismissed (key TEXT PRIMARY KEY, suggested REAL NOT NULL)")
     conn.execute("CREATE TABLE IF NOT EXISTS ignore_words (word TEXT PRIMARY KEY COLLATE NOCASE)")
     conn.execute("CREATE TABLE IF NOT EXISTS adjustments (id INTEGER PRIMARY KEY, entered TEXT NOT NULL, "
                  "effective TEXT NOT NULL, product_id INTEGER NOT NULL REFERENCES products(id), "
@@ -1274,4 +1275,78 @@ def retail_per_ml(conn) -> dict[int, float]:
             ml = r["ml"] or conn.execute("SELECT unit_ml FROM products WHERE id = ?", (pid,)).fetchone()[0]
             out.setdefault(pid, r["net"] / r["qty"] / ml)
     return out
+
+
+# ── Suggested pars ───────────────────────────────────────────────────────────
+
+PAR_WEEKS = 8      # how far back usage is read
+PAR_BUFFER = 0.25  # on top of the weeks of cover
+
+
+def _meta(conn, key: str, default: str = "") -> str:
+    r = conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
+    return r[0] if r else default
+
+
+def set_meta(conn, key: str, value: str) -> None:
+    conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", (key, str(value)))
+
+
+def par_suggestions(conn) -> dict[str, Any]:
+    """Pars that the last few weeks' use (sales, losses and batches) says are clearly too high or low:
+    a week's use (or the weeks of cover chosen) plus a buffer, rounded up. Only differences of at least
+    one unit and a quarter of the current par are suggested, and a rejected figure is not shown again."""
+    cover = float(_meta(conn, "par_cover_weeks", "1"))
+    since = datetime.now() - timedelta(days=PAR_WEEKS * 7)
+    first = conn.execute("SELECT MIN(ts) FROM events WHERE ts >= ?", (since.isoformat(timespec="seconds"),)).fetchone()[0]
+    weeks = (datetime.now() - datetime.fromisoformat(first)).days / 7 if first else 0
+    if weeks < 3:
+        return {"cover": cover, "weeks": round(weeks, 1), "lines": [], "why": "Needs at least three weeks of sales uploads"}
+    used = {r["product_id"]: -r["ml"] for r in rows(
+        conn, f"SELECT m.product_id, SUM(m.ml) ml FROM movements m WHERE m.ts >= ? AND ({USE_SQL} OR m.kind = 'batch_out') "
+              "GROUP BY m.product_id", first)}
+    pars = {r["product_id"]: r["units"] for r in rows(conn, "SELECT * FROM pars")}
+    gpars = {r["name"].lower(): r["units"] for r in rows(conn, "SELECT * FROM group_pars")}
+    dismissed = {r["key"]: r["suggested"] for r in rows(conn, "SELECT * FROM par_dismissed")}
+    lines, groups = [], {}
+    for p in rows(conn, "SELECT * FROM products WHERE active = 1"):
+        weekly = used.get(p["id"], 0) / p["unit_ml"] / weeks
+        if p["group_name"]:
+            g = groups.setdefault(p["group_name"].lower(), {"name": p["group_name"], "ml": 0.0, "sizes": []})
+            g["ml"] += weekly * p["unit_ml"]
+            g["sizes"].append((p["unit_ml"], p["unit_label"]))
+            continue
+        lines.append({"key": f"p:{p['id']}", "label": product_label(p), "unit_label": p["unit_label"],
+                      "weekly": weekly, "par": pars.get(p["id"])})
+    for g in groups.values():
+        unit_ml, label = max(g["sizes"], key=g["sizes"].count)
+        lines.append({"key": f"g:{g['name']}", "label": f"{g['name']} (group)", "unit_label": label,
+                      "weekly": g["ml"] / unit_ml, "par": gpars.get(g["name"].lower())})
+    out = []
+    for l in lines:
+        if l["weekly"] <= 0:
+            continue
+        suggested = math.ceil(l["weekly"] * cover * (1 + PAR_BUFFER) - 1e-9)
+        current = l["par"]
+        if current is not None and abs(suggested - current) < max(1, current * 0.25):
+            continue
+        if dismissed.get(l["key"]) == suggested:
+            continue
+        out.append({**l, "weekly": round(l["weekly"], 2), "suggested": suggested})
+    out.sort(key=lambda l: -abs(l["suggested"] - (l["par"] or 0)))
+    return {"cover": cover, "weeks": round(weeks, 1), "lines": out, "why": ""}
+
+
+def decide_pars(conn, accept: dict[str, float], reject: dict[str, float]) -> int:
+    for key, units in accept.items():
+        kind, ref = key.split(":", 1)
+        if kind == "p":
+            conn.execute("DELETE FROM pars WHERE product_id = ?", (int(ref),))
+            conn.execute("INSERT INTO pars (product_id, location, units) VALUES (?, ?, ?)", (int(ref), ALL, float(units)))
+        else:
+            set_group_par(conn, ref, units)
+        conn.execute("DELETE FROM par_dismissed WHERE key = ?", (key,))
+    for key, units in reject.items():
+        conn.execute("INSERT OR REPLACE INTO par_dismissed (key, suggested) VALUES (?, ?)", (key, float(units)))
+    return len(accept)
 

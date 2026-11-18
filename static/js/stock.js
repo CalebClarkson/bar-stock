@@ -400,6 +400,8 @@ function alerts(k) {
     Their sales are kept and come off stock once linked.${isAdmin() ? `<button class="btn small" data-goset="square">Link them</button>` : " An admin can link them in Settings."}</div>`);
   if (k.negative) out.push(`<div class="alert"><b>${k.negative} product${k.negative > 1 ? "s are" : " is"} below zero.</b> A recount or a missing delivery usually explains it.
     <button class="btn small ghost" data-report="stock">See stock</button></div>`);
+  if (isAdmin() && k.par_suggestions) out.push(`<div class="alert"><b>Suggested par changes available (${k.par_suggestions}).</b> Recent sales say some pars are too high or too low.
+    <button class="btn small" data-goset="products">Review</button></div>`);
   if (isAdmin() && k.comps) out.push(`<div class="alert"><b>${k.comps} comp${k.comps > 1 ? "s" : ""} with no reason.</b> Say whether each was wastage, overpour, training or a staff drink.
     <button class="btn small ghost" data-report="losses">Sort them</button></div>`);
   return out.join("");
@@ -925,7 +927,7 @@ const SETTINGS = {
     if (prodDraft) return productEditor();
     const showArchived = SETTINGS.products.archived;
     const list = products.filter((p) => (showArchived ? !p.active : p.active));
-    return `<div class="card"><h2>Products</h2><p class="hint">Everything you stock and count. Set the cost per bottle, keg or can for GP, and a par (the level you want to keep) for the order list.</p>
+    return `${await parCard()}<div class="card"><h2>Products</h2><p class="hint">Everything you stock and count. Set the cost per bottle, keg or can for GP, and a par (the level you want to keep) for the order list.</p>
       <div class="row"><button class="btn" id="newProduct">+ New product</button><span style="flex:1"></span>
       <label class="check"><input type="checkbox" id="showArchived" ${showArchived ? "checked" : ""}> Show archived (${products.filter((p) => !p.active).length})</label></div>
       ${tbl("products", [
@@ -1290,6 +1292,13 @@ const CLICK = {
     await render();
   },
   printReport: async () => printReport(),
+  parAll: async () => {
+    const { lines } = await get("/api/venue/pars/suggestions");
+    if (!confirm(`Set ${lines.length} pars to the suggested figures?`)) return;
+    await api("/api/venue/pars/suggestions", { json: { accept: Object.fromEntries(lines.map((l) => [l.key, l.suggested])) } });
+    toast(`${lines.length} pars updated`);
+    await reload();
+  },
   phoneApply: async () => {
     if (!phone.file) throw new Error("Choose the file again");
     const decisions = {};
@@ -1460,6 +1469,23 @@ async function setIgnoreDraft(words) {
   ignoreDraft = words;
   ignorePreview = await api("/api/venue/ignore/preview", { json: { words } });
   await render();
+}
+
+async function parCard() {
+  const s = await get("/api/venue/pars/suggestions");
+  if (!s.lines.length) return "";
+  return `<div class="card"><h2>${icon("order")} Suggested par changes (${s.lines.length})</h2>
+    <p class="hint">From the last ${num(s.weeks, 0)} weeks of sales, wastage and batches: enough for
+      <select id="parCover" style="width:auto;min-height:30px;padding:2px 6px;display:inline-block">${[1, 2].map((w) => `<option value="${w}" ${s.cover === w ? "selected" : ""}>${w} week${w > 1 ? "s" : ""}</option>`).join("")}</select>
+      of use plus a quarter extra. Approve the ones that look right; rejected ones stay hidden unless the figure changes.</p>
+    ${tbl("pars", [
+      { k: "label", label: "Product" },
+      { k: "weekly", label: "Used per week", n: true, f: (l) => units(l.weekly, l.unit_label) },
+      { k: "par", label: "Par now", n: true, f: (l) => (l.par == null ? `<span class="hint">none</span>` : num(l.par, 1)) },
+      { k: "suggested", label: "Suggested", n: true, f: (l) => `<b>${num(l.suggested, 0)}</b> <span class="${l.par != null && l.suggested < l.par ? "down" : "up"}">${l.par == null ? "new" : `${l.suggested > l.par ? "+" : ""}${num(l.suggested - l.par, 1)}`}</span>` },
+      { k: "act", label: "", nosort: true, f: (l) => `<div class="acts"><button class="btn small" data-paryes="${esc(l.key)}:${l.suggested}">Approve</button><button class="btn ghost small" data-parno="${esc(l.key)}:${l.suggested}">Reject</button></div>` },
+    ], s.lines, { limit: 15 })}
+    <div class="foot"><span class="sp"></span><button class="btn ghost" id="parAll">Approve all ${s.lines.length}</button></div></div>`;
 }
 
 async function groupsCard() {
@@ -1692,6 +1718,13 @@ document.addEventListener("click", guard(async (e) => {
     toast("Linked");
     return reload();
   }
+  if (ds.paryes || ds.parno) {
+    const raw = ds.paryes || ds.parno, cut = raw.lastIndexOf(":"), key = raw.slice(0, cut), units = Number(raw.slice(cut + 1));
+    await api("/api/venue/pars/suggestions", { json: ds.paryes ? { accept: { [key]: units } } : { reject: { [key]: units } } });
+    toast(ds.paryes ? "Par updated" : "Suggestion hidden");
+    cache = {};
+    return render();
+  }
   if (ds.adjmode) { adj.mode = ds.adjmode; adj.units = ""; return render(); }
   if (ds.rmword !== undefined) {
     const cur = [...(ignoreDraft ?? (await get("/api/venue/ignore")).words)];
@@ -1766,6 +1799,11 @@ document.addEventListener("change", guard(async (e) => {
     const p = productById.get(Number(ds.cost));
     if (p) p.unit_cost = el.value === "" ? null : Number(el.value);
     return toast("Cost saved");
+  }
+  if (el.id === "parCover") {
+    await api("/api/venue/pars/suggestions", { json: { cover: Number(el.value) } });
+    cache = {};
+    return render();
   }
   if (ds.gpar) {
     await api("/api/venue/groups/par", { json: { name: ds.gpar, units: el.value } });
